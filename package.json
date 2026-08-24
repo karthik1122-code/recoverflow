@@ -1,0 +1,12 @@
+{
+  "name": "recoverflow",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env server.mjs",
+    "start": "node server.mjs",
+    "test": "node --test core.test.mjs webhook.test.mjs audit.test.mjs idempotency.test.mjs messages.test.mjs",
+    "evaluate": "node evaluate.mjs"
+  }
+}
