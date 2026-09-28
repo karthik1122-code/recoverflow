@@ -1,6 +1,21 @@
-# RecoverFlow
+<div align="center">
 
-**A policy-first AI revenue recovery agent for Razorpay AI Buildathon — Track 03: AI Revenue Recovery.**
+# ⚡ RecoverFlow
+
+### Policy-First AI Revenue Recovery & Payment Protection Engine
+
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Razorpay](https://img.shields.io/badge/Razorpay-Webhook_Integration-02042B?style=for-the-badge&logo=razorpay&logoColor=0079C1)](https://razorpay.com)
+[![Buildathon](https://img.shields.io/badge/Razorpay_AI-Buildathon_2026-6366F1?style=for-the-badge)](https://github.com/karthik1122-code/recoverflow)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
+
+<br />
+
+**A policy-first AI revenue recovery agent built for Razorpay AI Buildathon — Track 03: AI Revenue Recovery.**
+
+</div>
+
+---
 
 RecoverFlow finds revenue at risk, diagnoses the probable cause from payment and customer-intent signals, recommends one bounded recovery action, and preserves an audit trail for every decision.
 
