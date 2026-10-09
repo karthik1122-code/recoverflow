@@ -10,12 +10,16 @@ export function appendAudit(chain, {title, detail, payment_id}) {
   return record;
 }
 
-export function verifyAuditChain(chain) {
+/**
+ * Verify hash links from newest to oldest. When old records have been dropped to cap memory,
+ * `anchor` is the hash of the last dropped record, so the oldest retained record is still checked.
+ */
+export function verifyAuditChain(chain, anchor = 'GENESIS') {
   for (let index = 0; index < chain.length; index += 1) {
     const record = chain[index];
     if (record.integrity_hash !== hash(canonical(record))) return {valid:false, index, reason:'record_hash_mismatch'};
     const older = chain[index + 1];
-    if ((older?.integrity_hash || 'GENESIS') !== record.previous_hash) return {valid:false, index, reason:'chain_link_mismatch'};
+    if ((older?.integrity_hash || anchor) !== record.previous_hash) return {valid:false, index, reason:'chain_link_mismatch'};
   }
   return {valid:true, records:chain.length, head_hash:chain[0]?.integrity_hash || 'GENESIS'};
 }

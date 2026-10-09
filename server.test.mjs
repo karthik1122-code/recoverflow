@@ -66,6 +66,16 @@ test('webhook: forged signatures are rejected, signed events are accepted once',
   assert.equal(audit.events.filter(e => e.id === 'pay_TEST1').length, 1);
 });
 
+test('50 concurrent identical deliveries create exactly one record', async () => {
+  const body = failed('pay_CONCURRENT');
+  const results = await Promise.all(Array.from({ length: 50 }, () => fetch(`${base}/webhooks/razorpay`, { method: 'POST', headers: { 'x-razorpay-signature': sign(body) }, body }).then(async r => ({ status: r.status, json: await r.json() }))));
+  assert.equal(results.filter(r => r.status === 201).length, 1);
+  assert.equal(results.filter(r => r.json.duplicate === true).length, 49);
+  const audit = await (await fetch(`${base}/api/audit`)).json();
+  assert.equal(audit.events.filter(e => e.id === 'pay_CONCURRENT').length, 1);
+  assert.equal(audit.integrity.valid, true);
+});
+
 test('test payment links are disabled unless explicitly enabled', async () => {
   const res = await fetch(`${base}/api/create-test-payment-link`, { method: 'POST', body: '{}' });
   assert.equal(res.status, 403);

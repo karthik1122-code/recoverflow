@@ -115,7 +115,8 @@ Use [SUBMISSION.md](SUBMISSION.md) for the form answers and five-minute demo flo
 server.mjs        HTTP server: API, webhook receiver, static files (public/ only)
 core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
 webhook.mjs       HMAC verification + Razorpay payload evaluation
-audit.mjs         hash-chained audit log      idempotency.mjs  duplicate-event guard
+audit.mjs         hash-chained audit log      idempotency.mjs  stable event keys
+store.mjs         atomic webhook commit: claim + record + audit, or nothing
 messages.mjs      consent-safe message drafts (English / Hinglish)
 public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
 ```
@@ -127,6 +128,17 @@ Amounts are always integers in **paise**.
 Two pages: a motion-rich landing page at `/` (kinetic headline, live engine stream that calls the real `/api/diagnose`, scroll reveals, tilt/magnetic interactions, reduced-motion aware) and the dashboard at `/app.html`.
 
 Light-first dashboard with a dark theme toggle, animated recovery sweep, approval gate, live webhook feed and audit-chain verification, a Decision lab that posts editable events to `/api/diagnose`, and a batch simulator. Sweep classifications and the live feed come from the real engine/API; the batch simulator uses clearly labelled illustrative constants. Shortcuts: `R` run sweep, `T` toggle theme.
+
+## Reliability
+
+Webhook handling is built to be safe to retry:
+
+- **Atomic commit.** The idempotency key, the event record and its audit entry are committed together. If processing fails part-way, the key is released and nothing is recorded, so the sender's retry is processed normally.
+- **Concurrent duplicates.** Duplicates that arrive while the first attempt is still running are not processed twice. Tests fire 200 simultaneous deliveries at the store and 50 at the HTTP endpoint and assert exactly one record.
+- **No key collisions.** If a payload has no entity id or timestamp, the key falls back to a fingerprint of the raw body, so two different events never share a key.
+- **Audit chain after trimming.** When old records are dropped to cap memory, the hash of the last dropped record is kept as a checkpoint, so the retained chain still verifies and tampering is still detected.
+
+State is still in memory, so it resets on restart. The store has a small contract (`commitWebhook`, `addAudit`, `snapshot`) so a database-backed store can replace it.
 
 ## Security notes
 
