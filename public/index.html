@@ -1,194 +1,185 @@
 <!doctype html>
 <html lang="en" data-theme="light">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RecoverFlow — Revenue Recovery Control Room</title>
-    <meta name="description" content="Policy-first AI revenue recovery for Razorpay payments. Diagnose failures, bound every action, and keep a tamper-evident audit trail." />
-    <meta name="theme-color" content="#faf9f6" />
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
-    <script src="theme.js"></script>
-  </head>
-  <body>
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-      <defs>
-        <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
-        <symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-        <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 12l5-5M12 4v2M20 12h-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
-        <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-        <symbol id="i-log" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 11h6M9 15h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
-        <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/></symbol>
-        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
-        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
-        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-        <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-        <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
-      </defs>
-    </svg>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RecoverFlow — Recover revenue. With receipts.</title>
+  <meta name="description" content="Policy-first AI revenue recovery for Razorpay payments. The AI proposes, policy decides, a human approves — with a tamper-evident audit trail." />
+  <meta name="theme-color" content="#faf9f6" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="landing.css" />
+  <script src="theme.js"></script>
+</head>
+<body>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
 
-    <a class="skip" href="#main">Skip to content</a>
-
-    <div class="shell">
-      <aside class="sidebar" id="sidebar" aria-label="Primary">
-        <a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="18" height="18"><path d="M8 22V10h8a4 4 0 0 1 0 8h-8M15 18l7 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-word">recover<em>flow</em></span></a>
-        <p class="side-label">Workspace</p>
-        <nav class="nav">
-          <a href="#overview" class="active" data-nav="overview"><svg><use href="#i-grid"/></svg>Overview</a>
-          <a href="#cases" data-nav="cases"><svg><use href="#i-queue"/></svg>Recovery queue <span id="queueBadge" class="badge">0</span></a>
-          <a href="#live" data-nav="live"><svg><use href="#i-radar"/></svg>Live webhooks <span class="live-dot" id="navLive" hidden></span></a>
-          <a href="#lab" data-nav="lab"><svg><use href="#i-flask"/></svg>Decision lab</a>
-          <a href="#audit" data-nav="audit"><svg><use href="#i-log"/></svg>Audit trail</a>
-          <a href="#policy" data-nav="policy"><svg><use href="#i-shield"/></svg>Guardrails</a>
-        </nav>
-        <div class="side-bottom">
-          <section class="safe-box"><span class="pulse" aria-hidden="true"></span><div><strong>Safe mode on</strong><small>Every money action needs a human</small></div></section>
-          <div class="side-meta"><span>Razorpay Test Mode</span><button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle theme (T)"><svg class="sun"><use href="#i-sun"/></svg><svg class="moon"><use href="#i-moon"/></svg></button></div>
-        </div>
-      </aside>
-
-      <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><svg><use href="#i-queue"/></svg></button>
-      <div class="scrim" id="scrim" hidden></div>
-
-      <main class="content" id="main">
-        <header class="hero" id="overview">
-          <div class="hero-copy">
-            <p class="eyebrow"><span class="eyebrow-dot"></span>AI revenue recovery · Razorpay AI Buildathon</p>
-            <h1>Recover revenue.<br /><em>With receipts.</em></h1>
-            <p class="subhead">RecoverFlow diagnoses why a payment failed, recommends one bounded action, and leaves a tamper-evident trail. The AI proposes; policy decides; a human approves.</p>
-            <div class="hero-actions">
-              <button class="btn btn-primary" id="runButton"><span class="btn-label">Run recovery sweep</span><svg><use href="#i-arrow"/></svg></button>
-              <button class="btn btn-ghost" id="resetButton">Reset demo</button>
-              <span class="hint"><kbd>R</kbd> run · <kbd>T</kbd> theme</span>
-            </div>
-          </div>
-          <div class="hero-status" aria-live="polite">
-            <div class="status-card">
-              <div class="status-row"><span>Engine</span><b id="engineState" class="chip chip-idle">READY</b></div>
-              <div class="status-row"><span>Webhook receiver</span><b id="serverState" class="chip chip-idle">CHECKING</b></div>
-              <div class="status-row"><span>Audit chain</span><b id="chainState" class="chip chip-idle">—</b></div>
-              <div class="status-foot">Synthetic dataset · no real payments are moved</div>
-            </div>
-          </div>
-        </header>
-
-        <section class="kpis" aria-label="Key metrics">
-          <article class="kpi"><p>Revenue at risk</p><strong id="atRisk" data-count>₹0</strong><small id="batchInfo">across 0 payment events</small><div class="kpi-bar"><i id="riskBar"></i></div></article>
-          <article class="kpi kpi-hot"><p>Recovered this sweep</p><strong id="recovered">₹0</strong><small><b id="recoveryRate" class="pos">0%</b> of recoverable value</small><div class="kpi-bar"><i id="recBar"></i></div></article>
-          <article class="kpi"><p>Awaiting approval</p><strong id="gated">0</strong><small>actions gated by a human</small><div class="kpi-dots" id="gateDots"></div></article>
-          <article class="kpi"><p>Diagnosis confidence</p><strong id="confidence">0%</strong><small>average on eligible cases</small><div class="kpi-bar"><i id="confBar"></i></div></article>
-        </section>
-
-        <section class="grid-2">
-          <article class="card flow-card">
-            <div class="card-head"><div><p class="eyebrow">Live workflow</p><h2>The recovery engine</h2></div><span class="tag" id="flowTag">Idle</span></div>
-            <div class="flow" id="flow">
-              <div class="node" data-node="0"><span class="node-n">01</span><strong>Detect</strong><small>Failure and intent signals</small><b id="detected">0</b></div>
-              <div class="link"><i></i></div>
-              <div class="node" data-node="1"><span class="node-n">02</span><strong>Diagnose</strong><small>Evidence-grounded cause</small><b id="diagnosed">0</b></div>
-              <div class="link"><i></i></div>
-              <div class="node" data-node="2"><span class="node-n">03</span><strong>Bound</strong><small>Policy and stop rules</small><b id="bounded">0</b></div>
-              <div class="link"><i></i></div>
-              <div class="node node-final" data-node="3"><span class="node-n">04</span><strong>Recover</strong><small>Approved, measured action</small><b id="recoveredCount">0</b></div>
-            </div>
-            <p class="note"><svg><use href="#i-shield"/></svg><span><strong>AI judgment, not AI autopilot.</strong> The agent classifies the cause and drafts the action. Deterministic policy is the final authority, and every decision is logged with its evidence.</span></p>
-          </article>
-
-          <article class="card drivers-card">
-            <div class="card-head"><div><p class="eyebrow">Loss drivers</p><h2 id="topDriver">Run a sweep</h2></div><span class="tag tag-live">Computed</span></div>
-            <p id="driverText" class="muted-text">Run a sweep to rank what is costing you the most, by value at risk.</p>
-            <div id="driverBars" class="driver-bars"></div>
-            <div class="card-foot"><span>Evidence coverage</span><strong id="evidenceCoverage">0%</strong></div>
-          </article>
-        </section>
-
-        <section class="card queue" id="cases">
-          <div class="card-head"><div><p class="eyebrow">Priority queue</p><h2>Interventions that need a decision</h2></div>
-            <div class="seg" role="tablist" aria-label="Filter cases">
-              <button class="seg-btn is-on" data-filter="all" role="tab" aria-selected="true">All</button>
-              <button class="seg-btn" data-filter="approve" role="tab" aria-selected="false">Needs approval</button>
-              <button class="seg-btn" data-filter="hold" role="tab" aria-selected="false">Held by policy</button>
-            </div></div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Customer</th><th>At risk</th><th>AI diagnosis</th><th>Confidence</th><th>Recommended recovery</th><th>Safety</th><th></th></tr></thead>
-            <tbody id="caseRows"></tbody>
-          </table></div>
-        </section>
-
-        <section class="card live" id="live">
-          <div class="card-head"><div><p class="eyebrow">Razorpay webhooks</p><h2>Live feed</h2></div><span class="tag" id="feedTag">Waiting</span></div>
-          <div class="live-grid">
-            <div>
-              <p class="muted-text">Signed <code>payment.failed</code> events from Razorpay Test Mode appear here. The HMAC signature is verified before anything is accepted, and each event is processed once.</p>
-              <div class="endpoint"><code id="endpointUrl">/webhooks/razorpay</code><button class="icon-btn" id="copyEndpoint" aria-label="Copy webhook URL"><svg><use href="#i-copy"/></svg></button></div>
-              <ol class="steps"><li>Deploy and set <code>RAZORPAY_WEBHOOK_SECRET</code>.</li><li>Add the URL above in Dashboard → Webhooks (Test Mode).</li><li>Trigger a failed Test Mode payment.</li></ol>
-            </div>
-            <div class="feed" id="feed"><p class="empty">No webhook events yet. When one arrives it is verified, diagnosed, policy-checked and shown here.</p></div>
-          </div>
-        </section>
-
-        <section class="lab" id="lab">
-          <div class="lab-copy"><p class="eyebrow">Interactive proof</p><h2>Decision lab</h2><p>Edit the payment event, send it to the live diagnosis and policy service, and inspect exactly why it was allowed or held.</p>
-            <ul class="ticks"><li>Signed events in production</li><li>No automatic charge, ever</li><li>Fully explainable result</li></ul></div>
-          <div class="console">
-            <div class="console-top"><i></i><i></i><i></i><span>POST /api/diagnose</span></div>
-            <div class="console-row"><label for="scenarioSelect">Scenario</label>
-              <select id="scenarioSelect"><option value="timeout">Issuer timeout after OTP</option><option value="funds">Insufficient balance</option><option value="duplicate">Suspected duplicate charge</option><option value="consent">No customer contact consent</option><option value="retry">Retry limit reached</option></select></div>
-            <label for="eventJson" class="sr">Event JSON</label>
-            <textarea id="eventJson" spellcheck="false" rows="9"></textarea>
-            <button class="btn btn-primary btn-block" id="evaluateButton"><span class="btn-label">Evaluate event</span><svg><use href="#i-arrow"/></svg></button>
-            <div class="decision" id="decisionResult" aria-live="polite"><span class="muted">Choose a scenario and evaluate it.</span></div>
-          </div>
-        </section>
-
-        <section class="card sim" id="simulator">
-          <div class="card-head sim-head"><div><p class="eyebrow">Batch outcome simulator</p><h2>Measure recovery without hiding risk.</h2><p class="muted-text">An illustrative model comparing generic retry-everything recovery to RecoverFlow’s gated approach. Assumptions are shown with the result.</p></div>
-            <div class="sim-controls"><label for="volumeSelect">Batch size</label><div class="row"><select id="volumeSelect"><option value="50">50 failed payments</option><option value="100" selected>100 failed payments</option><option value="250">250 failed payments</option></select><button class="btn btn-primary" id="simulateButton"><span class="btn-label">Simulate</span><svg><use href="#i-arrow"/></svg></button></div></div></div>
-          <div class="versus">
-            <div class="vs-col"><h3>Generic recovery</h3><small>Retry every failure, then chase manually</small>
-              <dl><div><dt>Recovered</dt><dd id="genericRecovered">—</dd></div><div><dt>Unsafe or wasted actions</dt><dd id="genericWaste">—</dd></div><div><dt>Human reviews</dt><dd id="genericReviews">—</dd></div></dl>
-              <div class="vs-bar"><i id="genericBar"></i></div></div>
-            <div class="vs-col vs-win"><h3>RecoverFlow</h3><small>Diagnose, bound, approve, measure</small>
-              <dl><div><dt>Recovered</dt><dd id="rfRecovered">—</dd></div><div><dt>Protected by policy</dt><dd id="rfProtected">—</dd></div><div><dt>Human reviews</dt><dd id="rfReviews">—</dd></div></dl>
-              <div class="vs-bar"><i id="rfBar"></i></div></div>
-          </div>
-          <p class="sim-note" id="simInsight">Run the simulation to see transparent, reproducible numbers.</p>
-        </section>
-
-        <section class="card audit" id="audit">
-          <div class="card-head"><div><p class="eyebrow">Explainability</p><h2>Immutable decision trail</h2></div><div class="row"><span class="chip chip-idle" id="auditChain">Local session</span><button class="btn btn-ghost" id="downloadButton">Export JSON</button></div></div>
-          <div class="audit-log" id="auditLog"><p class="empty">No sweep has been run. Every decision will appear here with its evidence, policy status and outcome.</p></div>
-        </section>
-
-        <section class="policy" id="policy">
-          <div class="policy-head"><p class="eyebrow">Non-negotiable guardrails</p><h2>What the agent will <em>never</em> do</h2></div>
-          <div class="policy-grid">
-            <article><svg><use href="#i-shield"/></svg><h3>One retry per 24 hours</h3><p>A second failure is held for a human. Repeated retries erode trust and trigger issuer blocks.</p><code>retry_limit_reached</code></article>
-            <article><svg><use href="#i-shield"/></svg><h3>No contact after opt-out</h3><p>Consent is checked before any message is drafted. No consent, no outreach.</p><code>NO_CONSENT</code></article>
-            <article><svg><use href="#i-shield"/></svg><h3>No unapproved money action</h3><p>Retries, refunds and payments always wait for explicit human approval.</p><code>HUMAN_GATE</code></article>
-            <article><svg><use href="#i-shield"/></svg><h3>No hidden exceptions</h3><p>Duplicates, disputes and low-confidence cases stay visible in the queue.</p><code>EXCEPTION_QUEUE</code></article>
-          </div>
-        </section>
-
-        <footer class="footer">
-          <div class="foot-grid">
-            <div><a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="18" height="18"><path d="M8 22V10h8a4 4 0 0 1 0 8h-8M15 18l7 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-word">recover<em>flow</em></span></a>
-              <p class="foot-text">Policy-first AI revenue recovery. Built for the Razorpay AI Buildathon, Track 03.</p></div>
-            <div><h4>Product</h4><a href="#cases">Recovery queue</a><a href="#live">Live webhooks</a><a href="#lab">Decision lab</a><a href="#audit">Audit trail</a></div>
-            <div><h4>Project</h4><a href="https://github.com/karthik1122-code/recoverflow" target="_blank" rel="noreferrer">Source on GitHub</a><a href="https://github.com/karthik1122-code/recoverflow/blob/main/ARCHITECTURE.md" target="_blank" rel="noreferrer">Architecture</a><a href="https://github.com/karthik1122-code/recoverflow/blob/main/DEPLOY.md" target="_blank" rel="noreferrer">Deploy guide</a></div>
-            <div><h4>Built by</h4><a href="https://github.com/karthik1122-code" target="_blank" rel="noreferrer">Karthik Uppari</a><a href="https://linkedin.com/in/karthik-uppari-4005a7373" target="_blank" rel="noreferrer">LinkedIn</a></div>
-          </div>
-          <div class="foot-bar"><span>© <span id="year"></span> RecoverFlow. Synthetic demo data. Not affiliated with Razorpay.</span><span>Test Mode only · v1.1</span></div>
-        </footer>
-      </main>
+  <header class="nav" id="nav">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="18" height="18"><path d="M8 22V10h8a4 4 0 0 1 0 8h-8M15 18l7 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>recover<em>flow</em></span></a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#engine">Engine</a><a href="#how">How it works</a><a href="#features">Features</a><a href="#guardrails">Guardrails</a><a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-cta">
+      <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle theme (T)"><svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><svg class="moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
+      <a class="btn btn-dark magnetic" href="app.html">Open dashboard <span class="arr">→</span></a>
     </div>
+  </header>
 
-    <dialog id="approvalDialog"><form method="dialog"><button class="close" value="cancel" aria-label="Close">×</button><p class="eyebrow">Human in the loop</p><h2>Approve recovery action?</h2><div id="approvalContent"></div><div class="dialog-actions"><button value="cancel" class="btn btn-ghost">Keep on hold</button><button value="approve" class="btn btn-primary" id="confirmApproval">Approve action</button></div></form></dialog>
-    <dialog id="caseDialog"><form method="dialog"><button class="close" value="cancel" aria-label="Close">×</button><p class="eyebrow">Recovery case file</p><h2 id="caseTitle">Payment case</h2><div id="caseContent"></div></form></dialog>
-    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-    <script src="app.js"></script>
-  </body>
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-copy">
+        <a class="pill" href="#engine"><span class="dot"></span> Razorpay AI Buildathon · Track 03 <span class="pill-sep">/</span> AI Revenue Recovery</a>
+        <h1 class="display" id="headline" aria-label="Recover revenue. With receipts.">
+          <span class="line" data-split>Recover revenue.</span>
+          <span class="line serif" data-split>With receipts.</span>
+        </h1>
+        <p class="lede">Every failed payment has a reason. RecoverFlow reads the evidence, picks <b>one</b> bounded recovery action, and waits for a human — leaving a tamper-evident trail behind every decision.</p>
+        <p class="rotator" aria-live="off">Built for <span class="rot-wrap"><span class="rot" id="rot">OTP timeouts</span></span></p>
+        <div class="hero-cta">
+          <a class="btn btn-lime magnetic" href="app.html">Run the live demo <span class="arr">→</span></a>
+          <a class="btn btn-ghost magnetic" href="#engine">Watch the engine</a>
+        </div>
+        <ul class="trust">
+          <li><b data-count="0">0</b> autonomous money moves</li>
+          <li><b data-count="5">5</b> policy guardrails</li>
+          <li><b data-count="100" data-suffix="%">100%</b> decisions audited</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual" id="engine">
+        <div class="orb o1"></div><div class="orb o2"></div>
+        <div class="engine tilt" id="engineCard">
+          <div class="engine-head">
+            <span class="traffic"><i></i><i></i><i></i></span>
+            <span class="mono">POST /api/diagnose</span>
+            <span class="live"><span class="dot"></span> LIVE ENGINE</span>
+          </div>
+          <div class="scanline" aria-hidden="true"></div>
+          <ul class="stream" id="stream" aria-live="polite"></ul>
+          <div class="engine-foot mono"><span id="engineStat">Connecting to engine…</span><span>synthetic events · no real payments</span></div>
+        </div>
+        <div class="float f1"><span class="ico">₹</span><div><b>₹12,499 saved</b><small>approved by a human</small></div></div>
+        <div class="float f2"><span class="ico ok">✓</span><div><b>Chain verified</b><small>SHA-256 linked</small></div></div>
+      </div>
+    </section>
+
+    <!-- MARQUEE -->
+    <section class="marquee" aria-label="Failure modes handled">
+      <div class="track" id="track"></div>
+    </section>
+
+    <!-- NUMBERS -->
+    <section class="numbers wrap">
+      <div class="num reveal"><b data-count="4">4</b><span>step pipeline</span><p>Detect → Diagnose → Bound → Recover</p></div>
+      <div class="num reveal"><b data-count="21">21</b><span>held-out scenarios</span><p>Regression suite, reproducible with <code>npm run evaluate</code></p></div>
+      <div class="num reveal"><b data-count="24" data-suffix="h">24h</b><span>retry window</span><p>At most one retry per payment per day</p></div>
+      <div class="num reveal"><b data-count="0">0</b><span>dependencies</span><p>Pure Node. Nothing to patch, nothing to trust.</p></div>
+    </section>
+
+    <!-- HOW -->
+    <section class="how wrap" id="how">
+      <div class="sec-head reveal">
+        <span class="eyebrow">How it works</span>
+        <h2 class="h2">From failed payment to <em>approved action</em> in four steps.</h2>
+      </div>
+      <div class="pipe" id="pipe">
+        <svg class="pipe-line" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true"><path id="pipePath" d="M0 20 H1000" /><circle r="6" id="packet"/></svg>
+        <div class="steps">
+          <article class="step reveal tilt"><span class="n">01</span><h3>Detect</h3><p>Signed Razorpay webhooks — <code>payment.failed</code>, mandate and invoice events — verified by HMAC before anything else.</p><div class="mini sig mono" id="sigDemo">X-Razorpay-Signature: …</div></article>
+          <article class="step reveal tilt"><span class="n">02</span><h3>Diagnose</h3><p>Evidence-grounded cause with a calibrated confidence. No evidence, no recommendation.</p><div class="mini conf"><i style="--w:94%"></i><span class="mono">94%</span></div></article>
+          <article class="step reveal tilt"><span class="n">03</span><h3>Bound</h3><p>A deterministic policy layer checks consent, retry limits, duplicates and amount thresholds.</p><div class="mini chips"><span class="chip ok">HUMAN_GATE</span><span class="chip no">NO_CONSENT</span></div></article>
+          <article class="step reveal tilt"><span class="n">04</span><h3>Recover</h3><p>A human approves one action. The outcome and its evidence are sealed into the audit chain.</p><div class="mini approve"><span>Approve</span><i></i></div></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="features wrap" id="features">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Features</span>
+        <h2 class="h2">Everything a payments team needs to <em>trust</em> an AI agent.</h2>
+      </div>
+      <div class="bento">
+        <article class="b b-audit reveal tilt">
+          <span class="eyebrow">Tamper-evident</span><h3>A hash-chained audit trail</h3>
+          <p>Each entry commits to the one before it. Edit history and the chain visibly breaks.</p>
+          <div class="verify mono"><span class="dot"></span> CHAIN VERIFIED · EVERY ENTRY LINKS TO THE LAST</div>
+          <div class="chain" id="chain" aria-hidden="true"></div>
+        </article>
+        <article class="b b-msg reveal tilt">
+          <span class="eyebrow">Consent-safe</span><h3>Messages that respect opt-outs</h3>
+          <div class="seg" role="tablist"><button class="on" data-lang="en">English</button><button data-lang="hi">Hinglish</button></div>
+          <div class="bubble" id="bubble"></div>
+          <small class="muted">Opted-out customers are never contacted — drafting is blocked by policy.</small>
+        </article>
+        <article class="b b-gate reveal tilt">
+          <span class="eyebrow">Human in the loop</span><h3>The AI proposes. A person decides.</h3>
+          <div class="gate"><div class="gate-row"><span>Auto-charge</span><i class="sw off"></i></div><div class="gate-row"><span>Auto-refund</span><i class="sw off"></i></div><div class="gate-row"><span>Human approval</span><i class="sw on"></i></div></div>
+        </article>
+        <article class="b b-lab reveal tilt">
+          <span class="eyebrow">Explainable</span><h3>Decision lab</h3>
+          <pre class="code mono" id="labCode"></pre>
+        </article>
+        <article class="b b-sec reveal tilt">
+          <span class="eyebrow">Hardened</span><h3>Secure by default</h3>
+          <ul class="ticks"><li>Strict CSP &amp; security headers</li><li>Only <code>public/</code> is served</li><li>Idempotent webhooks</li><li>Test-mode keys only</li></ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- GUARDRAILS -->
+    <section class="guard wrap" id="guardrails">
+      <div class="guard-grid">
+        <div class="reveal">
+          <span class="eyebrow">Guardrails</span>
+          <h2 class="h2">Hard stops, <em>not suggestions.</em></h2>
+          <p class="lede sm">These run on every event, before a human ever sees a recommendation.</p>
+          <a class="btn btn-dark magnetic" href="app.html#lab">Try to break them <span class="arr">→</span></a>
+        </div>
+        <ul class="rules">
+          <li class="rule reveal"><span class="code mono">NO_CONSENT</span><p>No contact after opt-out. Ever.</p></li>
+          <li class="rule reveal"><span class="code mono">HIGH_VALUE_REVIEW</span><p>Payments above ₹5,00,000 go to senior review.</p></li>
+          <li class="rule reveal"><span class="code mono">EXCEPTION_QUEUE</span><p>Duplicates, disputes and mandate loops are held for a human.</p></li>
+          <li class="rule reveal"><span class="code mono">LOW_CONFIDENCE</span><p>Unsure diagnoses never become actions.</p></li>
+          <li class="rule reveal"><span class="code mono">HUMAN_GATE</span><p>Everything else still needs one explicit approval.</p></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq wrap" id="faq">
+      <div class="sec-head reveal"><span class="eyebrow">FAQ</span><h2 class="h2">Straight answers.</h2></div>
+      <div class="qa reveal">
+        <details><summary>Does it move real money?</summary><p>No. The demo uses synthetic payments, and the optional integration only accepts Razorpay <b>Test Mode</b> keys. No action executes without human approval.</p></details>
+        <details><summary>Is the AI making the decisions?</summary><p>The AI classifies the cause and drafts an intervention. A deterministic policy engine decides what is allowed, and a human approves it.</p></details>
+        <details><summary>What is real and what is simulated?</summary><p>The diagnosis, policy engine, HMAC verification, idempotency and audit chain are real code with tests. The sample payments and the batch outcome simulator are illustrative and labelled as such.</p></details>
+        <details><summary>How do I connect Razorpay?</summary><p>Deploy, set <code>RAZORPAY_WEBHOOK_SECRET</code>, add <code>/webhooks/razorpay</code> in the Test Mode dashboard, and trigger a failed test payment. See the deployment runbook in the repo.</p></details>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="final wrap">
+      <div class="final-card reveal">
+        <div class="final-glow" aria-hidden="true"></div>
+        <h2 class="display sm">Stop guessing why<br/>payments <span class="serif">fail.</span></h2>
+        <p class="lede">Open the dashboard, run a sweep, and approve your first recovery in under a minute.</p>
+        <div class="hero-cta c"><a class="btn btn-lime lg magnetic" href="app.html">Open the dashboard <span class="arr">→</span></a><a class="btn btn-ghost lg magnetic" href="https://github.com/karthik1122-code/recoverflow">View on GitHub</a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="18" height="18"><path d="M8 22V10h8a4 4 0 0 1 0 8h-8M15 18l7 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>recover<em>flow</em></span></a><p class="muted">Policy-first AI revenue recovery.<br/>Built for the Razorpay AI Buildathon.</p></div>
+    <div><h4>Product</h4><a href="app.html">Dashboard</a><a href="app.html#lab">Decision lab</a><a href="app.html#audit">Audit trail</a></div>
+    <div><h4>Project</h4><a href="https://github.com/karthik1122-code/recoverflow">GitHub</a><a href="https://github.com/karthik1122-code/recoverflow/blob/main/ARCHITECTURE.md">Architecture</a><a href="https://github.com/karthik1122-code/recoverflow/blob/main/DEPLOY.md">Deploy</a></div>
+    <div><h4>Maker</h4><a href="https://github.com/karthik1122-code">Karthik Uppari</a><a href="https://www.linkedin.com/in/karthik-uppari-4005a7373">LinkedIn</a></div>
+    <div class="foot-bar mono"><span>© 2026 RecoverFlow · MIT</span><span>Razorpay Test Mode only · synthetic data</span></div>
+  </footer>
+  <script src="landing.js" type="module"></script>
+</body>
 </html>

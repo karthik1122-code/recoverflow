@@ -70,3 +70,12 @@ test('test payment links are disabled unless explicitly enabled', async () => {
   const res = await fetch(`${base}/api/create-test-payment-link`, { method: 'POST', body: '{}' });
   assert.equal(res.status, 403);
 });
+
+test('landing page, dashboard and their assets are served', async () => {
+  const home = await fetch(`${base}/`);
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /Recover revenue/);
+  for (const path of ['/app.html', '/landing.css', '/landing.js', '/app.js', '/styles.css']) {
+    assert.equal((await fetch(`${base}${path}`)).status, 200, path);
+  }
+});

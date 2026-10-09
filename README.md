@@ -25,6 +25,8 @@ Revenue loss is rarely a single failure: a payment can time out after OTP, a sub
 
 ## Screenshots
 
+![Landing page](docs/landing.png)
+
 | Light (default) | Dark |
 |---|---|
 | ![Dashboard light](docs/dashboard-light.png) | ![Dashboard dark](docs/dashboard-dark.png) |
@@ -111,12 +113,14 @@ core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (
 webhook.mjs       HMAC verification + Razorpay payload evaluation
 audit.mjs         hash-chained audit log      idempotency.mjs  duplicate-event guard
 messages.mjs      consent-safe message drafts (English / Hinglish)
-public/           the UI (index.html, styles.css, app.js, theme.js) — the only directory served
+public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
 ```
 
 Amounts are always integers in **paise**.
 
 ## UI
+
+Two pages: a motion-rich landing page at `/` (kinetic headline, live engine stream that calls the real `/api/diagnose`, scroll reveals, tilt/magnetic interactions, reduced-motion aware) and the dashboard at `/app.html`.
 
 Light-first dashboard with a dark theme toggle, animated recovery sweep, approval gate, live webhook feed and audit-chain verification, a Decision lab that posts editable events to `/api/diagnose`, and a batch simulator. Sweep classifications and the live feed come from the real engine/API; the batch simulator uses clearly labelled illustrative constants. Shortcuts: `R` run sweep, `T` toggle theme.
 
