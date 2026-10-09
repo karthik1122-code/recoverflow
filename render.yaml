@@ -3,12 +3,14 @@ services:
     name: recoverflow
     runtime: node
     plan: free
-    buildCommand: npm test
+    buildCommand: npm ci && npm test
     startCommand: npm start
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: DATABASE_URL
+        sync: false
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET

@@ -6,6 +6,7 @@ import { evaluateRazorpayWebhook, verifyRazorpaySignature } from './webhook.mjs'
 import { verifyAuditChain } from './audit.mjs';
 import { razorpayEventKey } from './idempotency.mjs';
 import { createMemoryStore } from './store.mjs';
+import { createPostgresStore } from './pg-store.mjs';
 import { draftRecoveryMessage } from './messages.mjs';
 
 const port = Number(process.env.PORT || 4173);
@@ -13,7 +14,9 @@ const publicRoot = new URL('./public/', import.meta.url).pathname;
 const MAX_BODY = 100 * 1024;
 const MAX_RECORDS = 500;
 const ENABLE_TEST_LINKS = process.env.ENABLE_TEST_LINKS === 'true';
-const store = createMemoryStore({ maxRecords: MAX_RECORDS });
+const store = process.env.DATABASE_URL
+  ? await createPostgresStore({ connectionString: process.env.DATABASE_URL, maxRecords: MAX_RECORDS })
+  : createMemoryStore({ maxRecords: MAX_RECORDS });
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
 const securityHeaders = {
   'x-content-type-options':'nosniff',
@@ -72,7 +75,7 @@ const server = createServer(async (request, response) => {
       await auditEvent(draft.allowed ? 'Recovery message drafted' : 'Recovery message blocked', draft.allowed ? `Drafted ${draft.language} communication; approval remains required before sending.` : draft.reason, event.id || 'manual');
       return reply(response, draft.allowed ? 200 : 422, draft);
     }
-    if (request.method === 'GET' && url.pathname === '/api/audit') { const {events, audit, anchor} = store.snapshot(); return reply(response, 200, {events, audit, integrity:verifyAuditChain(audit, anchor)}); }
+    if (request.method === 'GET' && url.pathname === '/api/audit') { const {events, audit, anchor} = await store.snapshot(); return reply(response, 200, {events, audit, integrity:verifyAuditChain(audit, anchor)}); }
     if (request.method === 'POST' && url.pathname === '/api/create-test-payment-link') {
       if (!ENABLE_TEST_LINKS) return reply(response, 403, {error:'Test payment links are disabled. Set ENABLE_TEST_LINKS=true on a private deployment.'});
       if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return reply(response, 400, {error:'Add Razorpay TEST mode credentials to your environment first.'});

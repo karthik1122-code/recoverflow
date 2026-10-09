@@ -99,7 +99,7 @@ Initially, the recovery logic treated any payment failure as a retry candidate. 
 - `npm test` validates core safety rules.
 - `npm run evaluate` produces reproducible benchmark output.
 - GitHub Actions runs both checks on every push.
-- The included Dockerfile deploys without third-party runtime dependencies.
+- The only runtime dependency is `pg`, and it is loaded only when `DATABASE_URL` is set. Without it the app runs in memory with zero dependencies.
 
 ## Deployment
 
@@ -116,7 +116,8 @@ server.mjs        HTTP server: API, webhook receiver, static files (public/ only
 core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
 webhook.mjs       HMAC verification + Razorpay payload evaluation
 audit.mjs         hash-chained audit log      idempotency.mjs  stable event keys
-store.mjs         atomic webhook commit: claim + record + audit, or nothing
+store.mjs         in-memory store: atomic webhook commit (claim + record + audit, or nothing)
+pg-store.mjs      same contract on Postgres, one transaction per webhook
 messages.mjs      consent-safe message drafts (English / Hinglish)
 public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
 ```
@@ -138,7 +139,15 @@ Webhook handling is built to be safe to retry:
 - **No key collisions.** If a payload has no entity id or timestamp, the key falls back to a fingerprint of the raw body, so two different events never share a key.
 - **Audit chain after trimming.** When old records are dropped to cap memory, the hash of the last dropped record is kept as a checkpoint, so the retained chain still verifies and tampering is still detected.
 
-State is still in memory, so it resets on restart. The store has a small contract (`commitWebhook`, `addAudit`, `snapshot`) so a database-backed store can replace it.
+### Persistence
+
+Set `DATABASE_URL` and the server uses Postgres; leave it unset and it runs in memory (state resets on restart).
+
+- The idempotency key is a primary key. The key, event and audit record are inserted in a single transaction, so a crash leaves nothing half-written.
+- A duplicate that arrives while the first attempt is still running waits on the unique index. If the first attempt commits, the duplicate is dropped; if it rolls back, the duplicate is processed. The database enforces this, not application code.
+- Audit appends are serialised with an advisory lock, so two writers can never link to the same previous hash.
+- `GET /api/audit` returns the latest 500 records plus an anchor hash, so the window still verifies.
+- Tests in `pg-store.test.mjs` run against a real database when `TEST_DATABASE_URL` is set (skipped otherwise): 200 concurrent duplicates, rollback and retry, a duplicate racing a failing attempt, restart persistence, and tamper detection on a window.
 
 ## Security notes
 
@@ -150,7 +159,7 @@ State is still in memory, so it resets on restart. The store has a small contrac
 
 ## Local development
 
-This is intentionally dependency-free and uses Node's built-in HTTP server:
+The HTTP server uses Node's built-in modules. Run `npm ci` once to install `pg`; it is only used when `DATABASE_URL` is set:
 
 ```bash
 cd recoverflow
