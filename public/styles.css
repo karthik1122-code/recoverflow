@@ -1,5 +1,5 @@
 /* RecoverFlow — design tokens */
-:root, [data-theme='dark'] {
+[data-theme='dark'] {
   --bg: #07100c; --bg-2: #0a1510; --panel: #0e1a14; --panel-2: #12221b; --raise: #17291f;
   --line: rgba(190, 255, 220, .09); --line-2: rgba(190, 255, 220, .16);
   --text: #eaf3ee; --muted: #8ea599; --faint: #5d7468;
@@ -9,12 +9,12 @@
   color-scheme: dark;
 }
 [data-theme='light'] {
-  --bg: #f3f6f1; --bg-2: #eef2eb; --panel: #ffffff; --panel-2: #f7faf5; --raise: #eef3ea;
-  --line: rgba(16, 40, 28, .1); --line-2: rgba(16, 40, 28, .2);
-  --text: #0f1d17; --muted: #5b6f64; --faint: #8a9b91;
-  --lime: #c9f24d; --lime-ink: #10201a; --lime-text: #3f6b00;
-  --green: #0f8a5a; --amber: #b87400; --red: #c43f3f; --blue: #1f6fb5;
-  --glow: rgba(150, 200, 40, .2); --shadow: 0 24px 50px -28px rgba(20, 50, 30, .35);
+  --bg: #faf9f6; --bg-2: #f4f2ec; --panel: #ffffff; --panel-2: #f8f7f3; --raise: #f1efe8;
+  --line: rgba(24, 32, 28, .08); --line-2: rgba(24, 32, 28, .15);
+  --text: #121a16; --muted: #5f6b64; --faint: #93a09a;
+  --lime: #c6f135; --lime-ink: #0f1a14; --lime-text: #2f6b12;
+  --green: #0c8f5f; --amber: #b36b00; --red: #c53a3a; --blue: #2f5fe0;
+  --glow: rgba(198, 241, 53, .35); --shadow: 0 30px 60px -30px rgba(30, 50, 40, .28), 0 2px 6px rgba(30, 50, 40, .05);
   color-scheme: light;
 }
 
@@ -336,4 +336,29 @@ dialog h2 { font-size: 22px; letter-spacing: -.03em; margin-top: 4px; }
 @media (max-width: 560px) {
   .kpis, .policy-grid, .foot-grid { grid-template-columns: 1fr; }
   .kpi strong { font-size: 28px; }
+}
+
+
+/* ---- Light theme: editorial, airy, premium ---- */
+[data-theme='light'] body::before {
+  background:
+    radial-gradient(48% 38% at 88% -8%, rgba(198,241,53,.38), transparent 70%),
+    radial-gradient(42% 36% at 6% 8%, rgba(120,170,255,.20), transparent 70%),
+    radial-gradient(50% 40% at 50% 112%, rgba(61,220,151,.16), transparent 70%);
+  animation: drift 18s ease-in-out infinite alternate;
+}
+@keyframes drift { to { transform: translate3d(-1.5%, 1.5%, 0) scale(1.04); } }
+[data-theme='light'] .sidebar { background: rgba(255,255,255,.72); backdrop-filter: blur(22px) saturate(1.4); }
+[data-theme='light'] .nav a.active { background: #fff; box-shadow: 0 1px 0 var(--line), 0 8px 20px -10px rgba(30,50,40,.25), inset 2px 0 0 var(--lime-text); }
+[data-theme='light'] .brand-mark { box-shadow: 0 8px 22px -6px rgba(150,200,20,.7); }
+[data-theme='light'] h1, [data-theme='light'] h2 { letter-spacing: -.035em; }
+[data-theme='light'] .safe-box { background: #fff; box-shadow: var(--shadow); }
+[data-theme='light'] .badge { background: var(--text); color: #fff; }
+[data-theme='light'] .icon-btn { background: #fff; box-shadow: 0 1px 2px rgba(30,50,40,.06); }
+[data-theme='light'] .card, [data-theme='light'] .status-card, [data-theme='light'] .metric {
+  box-shadow: var(--shadow);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme='light'] .card, [data-theme='light'] .metric { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s; }
+  [data-theme='light'] .card:hover, [data-theme='light'] .metric:hover { transform: translateY(-3px); box-shadow: 0 40px 70px -34px rgba(30,50,40,.35); }
 }

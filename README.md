@@ -25,9 +25,9 @@ Revenue loss is rarely a single failure: a payment can time out after OTP, a sub
 
 ## Screenshots
 
-| Dark (default) | Light |
+| Light (default) | Dark |
 |---|---|
-| ![Dashboard dark](docs/dashboard-dark.png) | ![Dashboard light](docs/dashboard-light.png) |
+| ![Dashboard light](docs/dashboard-light.png) | ![Dashboard dark](docs/dashboard-dark.png) |
 
 | Decision lab | Mobile |
 |---|---|
@@ -118,7 +118,7 @@ Amounts are always integers in **paise**.
 
 ## UI
 
-Dark-first dashboard with a light theme toggle, animated recovery sweep, approval gate, live webhook feed and audit-chain verification, a Decision lab that posts editable events to `/api/diagnose`, and a batch simulator. Sweep classifications and the live feed come from the real engine/API; the batch simulator uses clearly labelled illustrative constants. Shortcuts: `R` run sweep, `T` toggle theme.
+Light-first dashboard with a dark theme toggle, animated recovery sweep, approval gate, live webhook feed and audit-chain verification, a Decision lab that posts editable events to `/api/diagnose`, and a batch simulator. Sweep classifications and the live feed come from the real engine/API; the batch simulator uses clearly labelled illustrative constants. Shortcuts: `R` run sweep, `T` toggle theme.
 
 ## Security notes
 
