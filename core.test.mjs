@@ -16,3 +16,12 @@ test('no contact without explicit consent', () => {
   const event = {error_description:'insufficient balance', customer_opted_in:false, amount:100};
   assert.equal(policyDecision(event, diagnose(event)).policy_code, 'NO_CONSENT');
 });
+
+test('actions above the high-value threshold (in paise) go to an accounts owner', async () => {
+  const { diagnose, policyDecision, HIGH_VALUE_PAISE } = await import('./core.mjs');
+  const base = {error_description:'issuer timeout', customer_opted_in:true, retry_count:0};
+  const ok = {...base, amount: HIGH_VALUE_PAISE};
+  assert.equal(policyDecision(ok, diagnose(ok)).status, 'approval_required');
+  const big = {...base, amount: HIGH_VALUE_PAISE + 1};
+  assert.equal(policyDecision(big, diagnose(big)).policy_code, 'HIGH_VALUE_REVIEW');
+});
