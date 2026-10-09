@@ -13,6 +13,10 @@
 
 **A policy-first AI revenue recovery agent built for Razorpay AI Buildathon — Track 03: AI Revenue Recovery.**
 
+### [▶ Live demo — recoverflow-ten.vercel.app](https://recoverflow-ten.vercel.app) · [Dashboard](https://recoverflow-ten.vercel.app/app.html)
+
+Synthetic data only · Razorpay Test Mode · every money action needs human approval
+
 </div>
 
 ---
