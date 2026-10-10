@@ -9,15 +9,17 @@ const SECRET = 'test-webhook-secret';
 const base = `http://127.0.0.1:${PORT}`;
 let child;
 
-test.before(async () => {
-  child = spawn(process.execPath, ['server.mjs'], { env: { ...process.env, PORT: String(PORT), RAZORPAY_WEBHOOK_SECRET: SECRET }, stdio: ['ignore', 'pipe', 'inherit'] });
+async function startServer(env = {}) {
+  child = spawn(process.execPath, ['server.mjs'], { env: { ...process.env, DATABASE_URL: '', AUTH: 'off', PORT: String(PORT), RAZORPAY_WEBHOOK_SECRET: SECRET, ...env }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
     child.stdout.on('data', d => { if (String(d).includes('ready')) resolve(); });
     child.on('error', reject);
     setTimeout(() => reject(new Error('server did not start')), 5000);
   });
-});
-test.after(async () => { child.kill(); await once(child, 'exit'); });
+}
+async function stopServer() { if (!child) return; child.kill(); await once(child, 'exit'); child = null; }
+test.before(() => startServer());
+test.after(() => stopServer());
 
 const sign = body => createHmac('sha256', SECRET).update(body).digest('hex');
 const failed = (id, notes = { recovery_opt_in: 'true' }) => JSON.stringify({ event: 'payment.failed', payload: { payment: { entity: { id, amount: 125000, currency: 'INR', error_description: 'issuer network timeout', created_at: 1700000000, notes } } } });
@@ -38,14 +40,14 @@ test('never serves source files, secrets or traversal paths', async () => {
 });
 
 test('rejects malformed and oversized bodies', async () => {
-  const bad = await fetch(`${base}/api/diagnose`, { method: 'POST', body: '{not json' });
+  const bad = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: '{not json' });
   assert.equal(bad.status, 400);
-  const big = await fetch(`${base}/api/diagnose`, { method: 'POST', body: JSON.stringify({ pad: 'x'.repeat(200 * 1024) }) }).catch(() => ({ status: 413 }));
+  const big = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: JSON.stringify({ pad: 'x'.repeat(200 * 1024) }) }).catch(() => ({ status: 413 }));
   assert.equal(big.status, 413);
 });
 
 test('diagnose returns a policy decision', async () => {
-  const res = await fetch(`${base}/api/diagnose`, { method: 'POST', body: JSON.stringify({ id: 't1', amount: 1000, error_description: 'insufficient balance', customer_opted_in: false }) });
+  const res = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: JSON.stringify({ id: 't1', amount: 1000, error_description: 'insufficient balance', customer_opted_in: false }) });
   const data = await res.json();
   assert.equal(res.status, 200);
   assert.equal(data.decision.status, 'held');
@@ -77,7 +79,7 @@ test('50 concurrent identical deliveries create exactly one record', async () =>
 });
 
 test('test payment links are disabled unless explicitly enabled', async () => {
-  const res = await fetch(`${base}/api/create-test-payment-link`, { method: 'POST', body: '{}' });
+  const res = await fetch(`${base}/api/create-test-payment-link`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: '{}' });
   assert.equal(res.status, 403);
 });
 
@@ -100,4 +102,31 @@ test('metrics reflect what the webhook endpoint actually did', async () => {
   assert.equal(m.per_minute.length, 30);
   assert.equal(m.per_minute.reduce((a, b) => a + b, 0), m.received);
   assert.ok(m.by_diagnosis && typeof m.by_diagnosis === 'object');
+});
+
+test('accounts mode: sign-in required, setup once, roles enforced, webhook still works without a session', async () => {
+  await stopServer(); await startServer({ AUTH: 'on', SETUP_TOKEN: 'setup-secret-xyz' });
+  const J = { 'x-ag-csrf': '1' };
+  const post = (path, body, headers = J) => fetch(`${base}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+  const jar = () => { let c = ''; return { set(res) { const sc = res.headers.get('set-cookie'); if (sc) c = sc.split(';')[0]; }, h: () => ({ ...J, cookie: c }) }; };
+  assert.equal((await fetch(`${base}/api/metrics`)).status, 401);
+  const gated = await fetch(`${base}/app.html`, { redirect: 'manual' }); assert.equal(gated.status, 302); assert.equal(gated.headers.get('location'), '/login.html');
+  assert.equal((await fetch(`${base}/`)).status, 200, 'landing page stays public');
+  const body = failed('pay_AUTH1');
+  assert.equal((await fetch(`${base}/webhooks/razorpay`, { method: 'POST', headers: { 'x-razorpay-signature': sign(body) }, body })).status, 201, 'Razorpay is not a signed-in user');
+  const admin = { email: 'admin@example.com', name: 'Admin', password: 'admin-password-123' };
+  assert.equal((await post('/api/auth/setup', admin)).status, 403);
+  const a = jar(); const setup = await post('/api/auth/setup', { ...admin, setupToken: 'setup-secret-xyz' }); assert.equal(setup.status, 201); a.set(setup);
+  assert.equal((await post('/api/auth/setup', { ...admin, setupToken: 'setup-secret-xyz' })).status, 409);
+  assert.equal((await fetch(`${base}/app.html`, { headers: a.h() })).status, 200);
+  assert.equal((await fetch(`${base}/api/metrics`, { headers: a.h() })).status, 200);
+  assert.equal((await fetch(`${base}/api/metrics`, { method: 'GET', headers: a.h() })).status, 200);
+  assert.equal((await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { cookie: a.h().cookie }, body: '{}' })).status, 403, 'mutating requests need the csrf header');
+  assert.equal((await post('/api/users', { email: 'v@example.com', name: 'Vee', password: 'viewer-password-1', role: 'viewer' }, a.h())).status, 201);
+  const v = jar(); v.set(await post('/api/auth/login', { email: 'v@example.com', password: 'viewer-password-1' }));
+  assert.equal((await fetch(`${base}/api/audit`, { headers: v.h() })).status, 200, 'viewers can read');
+  assert.equal((await post('/api/diagnose', { id: 'x', amount: 1000, error_description: 'timeout' }, v.h())).status, 403, 'viewers cannot diagnose');
+  assert.equal((await post('/api/users', { email: 'y@example.com', name: 'Y', password: 'password-password', role: 'viewer' }, v.h())).status, 403);
+  await post('/api/auth/logout', {}, v.h());
+  assert.equal((await fetch(`${base}/api/audit`, { headers: v.h() })).status, 401);
 });

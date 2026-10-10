@@ -89,5 +89,6 @@ export async function createPostgresStore({ connectionString, pool: existingPool
       return { events: events.rows.map(r => r.data), audit: rows.slice(0, maxRecords), anchor };
     },
     async close() { await pool.end(); },
+    _pool: pool,
   };
 }

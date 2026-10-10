@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team · RecoverFlow</title><meta name="robots" content="noindex">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="auth.css">
+<script src="theme.js"></script><script src="gate.js"></script>
+</head>
+<body>
+<main class="teampage" id="main">
+  <p><a href="/app.html">← Back to the control room</a></p>
+  <h1>Team</h1>
+  <p class="lede">Who can see, act and manage. Viewers read. Approvers can also run diagnoses and draft messages. Admins also manage people.</p>
+  <div class="teamgrid">
+    <section class="card scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead><tbody id="rows"></tbody></table></section>
+    <form class="card" id="form" novalidate>
+      <h2 style="margin:0 0 12px;font-size:18px">Add a person</h2>
+      <div class="f"><label for="n">Name</label><input id="n" maxlength="80"></div>
+      <div class="f"><label for="e">Email</label><input id="e" type="email"></div>
+      <div class="f"><label for="p">Temporary password (10+ characters)</label><input id="p" type="password" autocomplete="new-password"></div>
+      <div class="f"><label for="r">Role</label><select id="r"><option value="viewer">Viewer</option><option value="approver" selected>Approver</option><option value="admin">Admin</option></select></div>
+      <p class="err" id="err" role="alert"></p>
+      <button class="btn btn-lime" type="submit">Add person</button>
+    </form>
+  </div>
+</main>
+<script src="team.js" type="module"></script>
+</body>
+</html>

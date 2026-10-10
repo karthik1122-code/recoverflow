@@ -23,6 +23,20 @@ Synthetic data only · Razorpay Test Mode · every money action needs human appr
 
 RecoverFlow finds revenue at risk, diagnoses the probable cause from payment and customer-intent signals, recommends one bounded recovery action, and preserves an audit trail for every decision.
 
+## Accounts and roles
+
+Sign-in is on by default. The first visit to `/login.html` shows a setup screen that creates the administrator; set `SETUP_TOKEN` before deploying so a stranger who finds the URL first cannot claim that account. Administrators add people at `/team.html`.
+
+| Role | Can do |
+|---|---|
+| viewer | read the dashboard, metrics and audit trail |
+| approver | also run diagnoses and draft messages |
+| admin | also manage people and create test payment links |
+
+`POST /webhooks/razorpay` never needs a session; it is protected by the Razorpay signature. Passwords use scrypt, sessions are random tokens stored only as SHA-256 hashes, cookies are `HttpOnly; SameSite=Strict`, writes under `/api` need a custom `x-ag-csrf` header, and repeated failed logins lock that email and address for 15 minutes. `AUTH=off` serves the synthetic demo with no sign-in (used for the public showcase); never use it with real data.
+
+Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; login throttling is in memory and resets on restart.
+
 ## Why this matters
 
 Revenue loss is rarely a single failure: a payment can time out after OTP, a subscription mandate can fail, a B2B invoice can go overdue, or an otherwise high-intent checkout can be abandoned. Generic retries and mass reminders waste customer trust. RecoverFlow chooses the *least intrusive action that is justified by evidence*.

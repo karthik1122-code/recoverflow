@@ -17,3 +17,6 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         generateValue: true
+      # The first account becomes the administrator, so set this before the URL is public.
+      - key: SETUP_TOKEN
+        sync: false
