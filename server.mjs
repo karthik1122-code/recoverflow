@@ -8,6 +8,7 @@ import { razorpayEventKey } from './idempotency.mjs';
 import { createMemoryStore } from './store.mjs';
 import { createPostgresStore } from './pg-store.mjs';
 import { draftRecoveryMessage } from './messages.mjs';
+import { createMetrics } from './metrics.mjs';
 
 const port = Number(process.env.PORT || 4173);
 const publicRoot = new URL('./public/', import.meta.url).pathname;
@@ -17,6 +18,8 @@ const ENABLE_TEST_LINKS = process.env.ENABLE_TEST_LINKS === 'true';
 const store = process.env.DATABASE_URL
   ? await createPostgresStore({ connectionString: process.env.DATABASE_URL, maxRecords: MAX_RECORDS })
   : createMemoryStore({ maxRecords: MAX_RECORDS });
+const metrics = createMetrics();
+const storeKind = process.env.DATABASE_URL ? 'postgres' : 'memory';
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
 const securityHeaders = {
   'x-content-type-options':'nosniff',
@@ -45,8 +48,9 @@ const server = createServer(async (request, response) => {
   try {
     if (request.method === 'POST' && url.pathname === '/webhooks/razorpay') {
       const raw = await readBody(request);
-      if (!verifyRazorpaySignature(raw, request.headers['x-razorpay-signature'], process.env.RAZORPAY_WEBHOOK_SECRET)) return reply(response, 401, {error:'invalid webhook signature'});
+      if (!verifyRazorpaySignature(raw, request.headers['x-razorpay-signature'], process.env.RAZORPAY_WEBHOOK_SECRET)) { metrics.record('signature_failures'); return reply(response, 401, {error:'invalid webhook signature'}); }
       let payload; try { payload = JSON.parse(raw.toString('utf8')); } catch { throw new HttpError(400, 'invalid_json'); }
+      metrics.record('received');
       const idempotencyKey = razorpayEventKey(payload, raw);
       const outcome = await store.commitWebhook(idempotencyKey, () => {
         const evaluation = evaluateRazorpayWebhook(payload);
@@ -58,7 +62,8 @@ const server = createServer(async (request, response) => {
           value: {status:201, body:{id:record.id, diagnosis:evaluation.diagnosis, decision:evaluation.decision}},
         };
       });
-      if (outcome.duplicate) return reply(response, 200, {duplicate:true, idempotency_key:idempotencyKey});
+      if (outcome.duplicate) { metrics.record('duplicates_blocked'); return reply(response, 200, {duplicate:true, idempotency_key:idempotencyKey}); }
+      metrics.record(outcome.value.status === 201 ? 'accepted' : 'ignored');
       return reply(response, outcome.value.status, outcome.value.body);
     }
     if (request.method === 'POST' && url.pathname === '/api/diagnose') {
@@ -74,6 +79,12 @@ const server = createServer(async (request, response) => {
       const draft = draftRecoveryMessage(event, language);
       await auditEvent(draft.allowed ? 'Recovery message drafted' : 'Recovery message blocked', draft.allowed ? `Drafted ${draft.language} communication; approval remains required before sending.` : draft.reason, event.id || 'manual');
       return reply(response, draft.allowed ? 200 : 422, draft);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/metrics') {
+      const {events} = await store.snapshot();
+      const by_diagnosis = {}; const by_decision = {};
+      for (const e of events) { const d = e.diagnosis?.label || 'unknown'; by_diagnosis[d] = (by_diagnosis[d] || 0) + 1; const p = e.decision?.policy_code || 'unknown'; by_decision[p] = (by_decision[p] || 0) + 1; }
+      return reply(response, 200, {store: storeKind, ...metrics.snapshot(), recorded_events: events.length, by_diagnosis, by_decision});
     }
     if (request.method === 'GET' && url.pathname === '/api/audit') { const {events, audit, anchor} = await store.snapshot(); return reply(response, 200, {events, audit, integrity:verifyAuditChain(audit, anchor)}); }
     if (request.method === 'POST' && url.pathname === '/api/create-test-payment-link') {
@@ -105,6 +116,7 @@ const server = createServer(async (request, response) => {
   } catch (error) {
     if (error instanceof HttpError) return reply(response, error.status, {error:error.code});
     console.error(error);
+    if (url.pathname === '/webhooks/razorpay') metrics.record('errors');
     reply(response, 500, {error:'internal_error'});
   }
 });

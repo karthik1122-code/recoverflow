@@ -445,4 +445,34 @@ $('endpointUrl').textContent = `${location.origin}/webhooks/razorpay`;
 loadScenario();
 renderAll();
 refreshServer();
-setInterval(() => { if (!document.hidden) refreshServer(); }, 6000);
+/* ---------- operations ---------- */
+async function refreshOps() {
+  try {
+    const res = await fetch('/api/metrics', { cache: 'no-store' });
+    if (!res.ok) throw new Error('bad status');
+    renderOps(await res.json());
+  } catch {
+    $('opsTag').textContent = 'Offline';
+    $('opsTag').classList.remove('on');
+  }
+}
+
+function renderOps(m) {
+  $('opsReceived').textContent = m.received;
+  $('opsAccepted').textContent = m.accepted;
+  $('opsDuplicates').textContent = m.duplicates_blocked;
+  $('opsSignature').textContent = m.signature_failures;
+  $('opsErrors').textContent = m.errors;
+  $('opsStore').textContent = m.store === 'postgres' ? 'Postgres' : 'In memory (resets on restart)';
+  $('opsTag').textContent = m.received ? `${m.received} since start` : 'Listening';
+  $('opsTag').classList.toggle('on', m.received > 0);
+  const peak = Math.max(1, ...m.per_minute);
+  $('opsSpark').innerHTML = m.per_minute.map((n, i) => `<i style="height:${Math.max(4, Math.round((n / peak) * 100))}%" class="${n ? 'hot' : ''}" title="${n} in minute ${i - m.per_minute.length + 1 || 'now'}"></i>`).join('');
+  const rows = Object.entries(m.by_diagnosis);
+  $('opsMix').innerHTML = rows.length
+    ? rows.sort((a, b) => b[1] - a[1]).map(([label, n]) => `<span class="chip chip-idle">${label.replace(/_/g, ' ')} · ${n}</span>`).join('')
+    : '<span class="muted-text">No diagnosed events yet.</span>';
+}
+
+refreshOps();
+setInterval(() => { if (!document.hidden) { refreshServer(); refreshOps(); } }, 6000);

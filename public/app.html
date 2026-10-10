@@ -130,6 +130,25 @@
           </div>
         </section>
 
+        <section class="card ops" id="ops">
+          <div class="card-head"><div><p class="eyebrow">Operations</p><h2>Webhook health</h2></div><span class="tag" id="opsTag">Waiting</span></div>
+          <div class="ops-grid">
+            <dl class="ops-stats">
+              <div><dt>Received</dt><dd id="opsReceived">0</dd></div>
+              <div><dt>Accepted</dt><dd id="opsAccepted">0</dd></div>
+              <div><dt>Duplicates blocked</dt><dd id="opsDuplicates">0</dd></div>
+              <div><dt>Signature failures</dt><dd id="opsSignature">0</dd></div>
+              <div><dt>Processing errors</dt><dd id="opsErrors">0</dd></div>
+              <div><dt>Storage</dt><dd id="opsStore">—</dd></div>
+            </dl>
+            <div>
+              <p class="muted-text">Deliveries per minute, last 30 minutes</p>
+              <div class="spark" id="opsSpark" role="img" aria-label="Webhook deliveries per minute"></div>
+              <div class="ops-mix" id="opsMix"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="lab" id="lab">
           <div class="lab-copy"><p class="eyebrow">Interactive proof</p><h2>Decision lab</h2><p>Edit the payment event, send it to the live diagnosis and policy service, and inspect exactly why it was allowed or held.</p>
             <ul class="ticks"><li>Signed events in production</li><li>No automatic charge, ever</li><li>Fully explainable result</li></ul></div>

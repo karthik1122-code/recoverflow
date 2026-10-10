@@ -127,6 +127,7 @@ server.mjs        HTTP server: API, webhook receiver, static files (public/ only
 core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
 webhook.mjs       HMAC verification + Razorpay payload evaluation
 audit.mjs         hash-chained audit log      idempotency.mjs  stable event keys
+metrics.mjs       process counters behind /api/metrics
 store.mjs         in-memory store: atomic webhook commit (claim + record + audit, or nothing)
 pg-store.mjs      same contract on Postgres, one transaction per webhook
 messages.mjs      consent-safe message drafts (English / Hinglish)
@@ -149,6 +150,10 @@ Webhook handling is built to be safe to retry:
 - **Concurrent duplicates.** Duplicates that arrive while the first attempt is still running are not processed twice. Tests fire 200 simultaneous deliveries at the store and 50 at the HTTP endpoint and assert exactly one record.
 - **No key collisions.** If a payload has no entity id or timestamp, the key falls back to a fingerprint of the raw body, so two different events never share a key.
 - **Audit chain after trimming.** When old records are dropped to cap memory, the hash of the last dropped record is kept as a checkpoint, so the retained chain still verifies and tampering is still detected.
+
+### Observability
+
+`GET /api/metrics` returns counters for this running instance (received, accepted, duplicates blocked, signature failures, processing errors), deliveries per minute for the last 30 minutes, the storage backend, and a breakdown of recorded events by diagnosis and policy code. The dashboard shows the same data in the Webhook health card. Counters live in memory and reset on restart; the events and audit chain are what persist.
 
 ### Persistence
 

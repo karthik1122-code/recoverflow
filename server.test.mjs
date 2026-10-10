@@ -89,3 +89,15 @@ test('landing page, dashboard and their assets are served', async () => {
     assert.equal((await fetch(`${base}${path}`)).status, 200, path);
   }
 });
+
+test('metrics reflect what the webhook endpoint actually did', async () => {
+  const m = await (await fetch(`${base}/api/metrics`)).json();
+  assert.equal(m.signature_failures, 1);
+  assert.equal(m.received, m.accepted + m.duplicates_blocked + m.ignored + m.errors);
+  assert.equal(m.accepted, 2);
+  assert.equal(m.duplicates_blocked, 50);
+  assert.equal(m.store, 'memory');
+  assert.equal(m.per_minute.length, 30);
+  assert.equal(m.per_minute.reduce((a, b) => a + b, 0), m.received);
+  assert.ok(m.by_diagnosis && typeof m.by_diagnosis === 'object');
+});
