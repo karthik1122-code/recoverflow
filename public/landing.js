@@ -79,7 +79,7 @@ const stream = $('#stream'), stat = $('#engineStat');
 let si = 0, handled = 0, held = 0, live = true;
 async function classify(sample) {
   try {
-    const r = await fetch('/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ag-csrf': '1' }, body: JSON.stringify(sample.e) });
+    const r = await fetch('/api/play/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ag-csrf': '1' }, body: JSON.stringify(sample.e) });
     if (!r.ok) throw 0; return await r.json();
   } catch { live = false; return null; }
 }

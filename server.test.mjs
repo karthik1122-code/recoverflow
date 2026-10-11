@@ -130,3 +130,13 @@ test('accounts mode: sign-in required, setup once, roles enforced, webhook still
   await post('/api/auth/logout', {}, v.h());
   assert.equal((await fetch(`${base}/api/audit`, { headers: v.h() })).status, 401);
 });
+
+test('public play endpoint diagnoses without writing to the audit log', async () => {
+  const before = await (await fetch(`${base}/api/audit`)).json();
+  const res = await fetch(`${base}/api/play/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: JSON.stringify({ id: 'p1', amount: 1000, error_description: 'insufficient balance', customer_opted_in: false }) });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(body.diagnosis && body.decision);
+  const after = await (await fetch(`${base}/api/audit`)).json();
+  assert.equal(JSON.stringify(after), JSON.stringify(before));
+});
