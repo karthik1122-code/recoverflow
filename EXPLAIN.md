@@ -47,6 +47,7 @@ Storage is a small contract (`commitWebhook`, `addAudit`, `snapshot`) with two i
 | Fall back to a body fingerprint when the entity id or timestamp is missing | The earlier version used a shared fallback string, so two different events could collapse into one key. | Two identical bodies still collapse, which is the correct behaviour. |
 | Advisory lock on audit appends | Without it, two concurrent writers could both link to the same previous hash and fork the chain. | Audit writes are serialised. At this scale that is fine. |
 | Deterministic rules for diagnosis, policy as the final authority | The cause of a payment failure can be explained and tested. An LLM may later suggest a diagnosis, but it must never be allowed to approve a money action. | Rules miss phrasings they have not seen (see below). |
+| Public demo route separate from the real API | The landing page shows live decisions to visitors who are not signed in. `/api/play/diagnose` is stateless: it writes nothing to the audit log or database, and is rate limited per address. The real `/api/diagnose` stays behind sign-in and the approver role. | Two code paths call the same `diagnose()` and `policyDecision()`, so they must stay in step. |
 | Missing consent defaults to "no" | A webhook without `notes.recovery_opt_in = "true"` is treated as not consented. Wrong in this direction is safe. | Fewer actions proposed. |
 | Money in integer paise | Floating point and money do not mix. | Convert for display. |
 
