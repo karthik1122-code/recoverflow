@@ -7,6 +7,10 @@
     "dev": "node --env-file-if-exists=.env server.mjs",
     "start": "node server.mjs",
     "test": "node --test",
-    "evaluate": "node evaluate.mjs"
+    "evaluate": "node evaluate.mjs",
+    "evaluate:hard": "node evaluate-hard.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
   }
 }

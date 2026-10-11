@@ -23,6 +23,20 @@ Synthetic data only · Razorpay Test Mode · every money action needs human appr
 
 RecoverFlow finds revenue at risk, diagnoses the probable cause from payment and customer-intent signals, recommends one bounded recovery action, and preserves an audit trail for every decision.
 
+## Accounts and roles
+
+Sign-in is on by default. The first visit to `/login.html` shows a setup screen that creates the administrator; set `SETUP_TOKEN` before deploying so a stranger who finds the URL first cannot claim that account. Administrators add people at `/team.html`.
+
+| Role | Can do |
+|---|---|
+| viewer | read the dashboard, metrics and audit trail |
+| approver | also run diagnoses and draft messages |
+| admin | also manage people and create test payment links |
+
+`POST /webhooks/razorpay` never needs a session; it is protected by the Razorpay signature. Passwords use scrypt, sessions are random tokens stored only as SHA-256 hashes, cookies are `HttpOnly; SameSite=Strict`, writes under `/api` need a custom `x-ag-csrf` header, and repeated failed logins lock that email and address for 15 minutes. `AUTH=off` serves the synthetic demo with no sign-in (used for the public showcase); never use it with real data.
+
+Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; login throttling is in memory and resets on restart.
+
 ## Why this matters
 
 Revenue loss is rarely a single failure: a payment can time out after OTP, a subscription mandate can fail, a B2B invoice can go overdue, or an otherwise high-intent checkout can be abandoned. Generic retries and mass reminders waste customer trust. RecoverFlow chooses the *least intrusive action that is justified by evidence*.
@@ -94,12 +108,23 @@ Initially, the recovery logic treated any payment failure as a retry candidate. 
 
 `npm run evaluate` runs a fixed 21-record synthetic **held-out scenario** suite covering transient failures, insufficient funds, mandates, duplicates, retry limits, unknown errors, and consent refusal. It reports diagnosis accuracy, policy-assertion accuracy, approval/hold counts, and a clearly labelled conservative recovery simulation. This is regression coverage, **not** a claim of live merchant performance.
 
+### Hard set (stress test)
+
+`npm run evaluate:hard` runs 47 hand-written cases with paraphrases, typos, Hinglish, refund messages, conflicting signals, consent and the high-value boundary. It prints per-class precision and recall, a confusion matrix and every miss. The cases were written by the author, so this is a stress and regression set, not production data.
+
+| | First run | After rule fixes |
+|---|---|---|
+| Diagnosis accuracy | 72.3% (34/47) | 97.9% (46/47) |
+| Unsafe actions (a case that must be held got queued for a customer) | 2 | 0 |
+
+What the first run found: the pattern `fund` matched "Refund processed" and "Funds transfer reversal", so the engine would have queued a payment reminder for a refund. Other misses were paraphrases ("not responding", "timed out", "not enough money"). The fixes were word-aware patterns and an explicit refund/reversal guard. The one remaining miss is intentional: "Refund initiated; original card has expired" is held for a human. The accuracy figure was measured on the same cases used to fix the rules, so treat it as a regression gate, not a prediction of live accuracy. CI fails if an unsafe action appears or accuracy drops under 95%.
+
 ## Quality bar
 
 - `npm test` validates core safety rules.
 - `npm run evaluate` produces reproducible benchmark output.
 - GitHub Actions runs both checks on every push.
-- The included Dockerfile deploys without third-party runtime dependencies.
+- The only runtime dependency is `pg`, and it is loaded only when `DATABASE_URL` is set. Without it the app runs in memory with zero dependencies.
 
 ## Deployment
 
@@ -116,7 +141,9 @@ server.mjs        HTTP server: API, webhook receiver, static files (public/ only
 core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
 webhook.mjs       HMAC verification + Razorpay payload evaluation
 audit.mjs         hash-chained audit log      idempotency.mjs  stable event keys
-store.mjs         atomic webhook commit: claim + record + audit, or nothing
+metrics.mjs       process counters behind /api/metrics
+store.mjs         in-memory store: atomic webhook commit (claim + record + audit, or nothing)
+pg-store.mjs      same contract on Postgres, one transaction per webhook
 messages.mjs      consent-safe message drafts (English / Hinglish)
 public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
 ```
@@ -138,7 +165,19 @@ Webhook handling is built to be safe to retry:
 - **No key collisions.** If a payload has no entity id or timestamp, the key falls back to a fingerprint of the raw body, so two different events never share a key.
 - **Audit chain after trimming.** When old records are dropped to cap memory, the hash of the last dropped record is kept as a checkpoint, so the retained chain still verifies and tampering is still detected.
 
-State is still in memory, so it resets on restart. The store has a small contract (`commitWebhook`, `addAudit`, `snapshot`) so a database-backed store can replace it.
+### Observability
+
+`GET /api/metrics` returns counters for this running instance (received, accepted, duplicates blocked, signature failures, processing errors), deliveries per minute for the last 30 minutes, the storage backend, and a breakdown of recorded events by diagnosis and policy code. The dashboard shows the same data in the Webhook health card. Counters live in memory and reset on restart; the events and audit chain are what persist.
+
+### Persistence
+
+Set `DATABASE_URL` and the server uses Postgres; leave it unset and it runs in memory (state resets on restart).
+
+- The idempotency key is a primary key. The key, event and audit record are inserted in a single transaction, so a crash leaves nothing half-written.
+- A duplicate that arrives while the first attempt is still running waits on the unique index. If the first attempt commits, the duplicate is dropped; if it rolls back, the duplicate is processed. The database enforces this, not application code.
+- Audit appends are serialised with an advisory lock, so two writers can never link to the same previous hash.
+- `GET /api/audit` returns the latest 500 records plus an anchor hash, so the window still verifies.
+- Tests in `pg-store.test.mjs` run against a real database when `TEST_DATABASE_URL` is set (skipped otherwise): 200 concurrent duplicates, rollback and retry, a duplicate racing a failing attempt, restart persistence, and tamper detection on a window.
 
 ## Security notes
 
@@ -150,7 +189,7 @@ State is still in memory, so it resets on restart. The store has a small contrac
 
 ## Local development
 
-This is intentionally dependency-free and uses Node's built-in HTTP server:
+The HTTP server uses Node's built-in modules. Run `npm ci` once to install `pg`; it is only used when `DATABASE_URL` is set:
 
 ```bash
 cd recoverflow

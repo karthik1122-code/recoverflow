@@ -10,9 +10,11 @@ export function diagnose(event) {
   if (event.duplicate_suspected) return result('possible_duplicate', 0.61, 'Hold for a human review', ['duplicate payment fingerprint']);
   if (event.dispute_open) return result('dispute_risk', 0.96, 'Hold for a human review', ['open dispute']);
   if (event.retry_count >= 1) return result('retry_limit_reached', 0.92, 'Hold; retry limit reached', ['retry attempted in prior 24h']);
-  if (/insufficient|balance|fund/.test(text)) return result('insufficient_funds', 0.89, 'Send a single payment-link reminder', ['bank balance failure', 'active customer consent']);
-  if (/mandate|expired|card.*expir/.test(text)) return result('mandate_or_card_issue', 0.91, 'Ask customer to update payment method', ['mandate or expiry signal']);
-  if (/timeout|network|gateway|technical/.test(text)) return result('transient_bank_failure', 0.94, 'Offer one delayed retry', ['issuer or network timeout', 'no retry in last 24h']);
+  // Refund / reversal messages describe money going back to the customer: never a recovery case.
+  if (/\b(refund(ed|s)?|reversal|reversed)\b/.test(text) && !/\b(fail(ed|ure)?|declin(ed|e))\b/.test(text)) return result('unknown', 0.42, 'Hold for human review', ['refund or reversal message, not a failed charge']);
+  if (/insuffici?ent\s+(funds?|balance)|\b(low|insufficient)\s+(account\s+)?balance|balance\s+(is\s+)?(too\s+low|kam)|not\s+enough\s+(money|funds?|balance)|exceeds?\s+(the\s+)?(available\s+)?(card\s+)?limit|available\s+limit/.test(text)) return result('insufficient_funds', 0.89, 'Send a single payment-link reminder', ['bank balance failure', 'active customer consent']);
+  if (/\bmandate\b|\bexpir(ed|y|es)\b|\bre-?authori[sz]e\b|card.*\b(blocked|not valid|invalid)\b|\bblocked\b.*\bcard\b/.test(text)) return result('mandate_or_card_issue', 0.91, 'Ask customer to update payment method', ['mandate or expiry signal']);
+  if (/time[\s-]?out|timed\s+out|network|gateway|technical|not\s+responding|unavailable|did\s+not\s+respond|server.*(down|slow)/.test(text)) return result('transient_bank_failure', 0.94, 'Offer one delayed retry', ['issuer or network timeout', 'no retry in last 24h']);
   if (event.checkout_open_minutes >= 5 && event.customer_opted_in) return result('high_intent_abandonment', 0.77, 'Send one cart-recovery payment link', ['checkout open ≥ 5 minutes', 'marketing consent']);
   return result('unknown', 0.42, 'Hold for human review', ['insufficient diagnostic evidence']);
 }

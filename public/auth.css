@@ -1,0 +1,25 @@
+.authpage{min-height:100vh;display:grid;place-items:center;padding:24px}
+.authwrap{width:min(420px,100%);display:grid;gap:22px;justify-items:center}
+.authcard{width:100%;background:var(--panel);border:1px solid var(--line-2);border-radius:22px;padding:30px;box-shadow:var(--shadow)}
+.authcard h1{font:400 34px/1.1 'Instrument Serif',Georgia,serif;margin:0 0 8px}
+.lede{color:var(--muted);margin:0 0 22px}
+.f{display:grid;gap:6px;margin-bottom:14px}.f label{font-size:13px;font-weight:600;color:var(--muted)}
+.f input,.f select{background:var(--bg-2);border:1px solid var(--line-2);border-radius:11px;padding:11px 13px;color:var(--text);font:inherit;width:100%}
+.f input:focus,.f select:focus{outline:2px solid var(--lime);outline-offset:1px}
+.err{min-height:20px;margin:0 0 10px;color:#c0362f;font-size:13.5px}
+.authcard .btn{width:100%;justify-content:center}
+.foot{margin:0;font-size:13px;color:var(--muted)}.foot a{color:inherit}
+.userchip{display:grid;gap:8px;padding:12px;border:1px solid var(--line-2);border-radius:12px;font-size:12.5px;margin-bottom:12px}
+.userchip b{display:block;font-size:13.5px}.userchip span{color:var(--muted)}
+.userchip .row{display:flex;gap:8px}.userchip button,.userchip a{flex:1;text-align:center;padding:7px 8px;border:1px solid var(--line-2);border-radius:9px;background:var(--panel);color:var(--text);font:600 12px Manrope,sans-serif;text-decoration:none;cursor:pointer}
+.teampage{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+.teampage h1{font:400 40px/1.1 'Instrument Serif',Georgia,serif;margin:0 0 6px}
+.teamgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start;margin-top:24px}
+.teamgrid table{width:100%;border-collapse:collapse}.teamgrid th,.teamgrid td{text-align:left;padding:10px;border-bottom:1px solid var(--line);font-size:14px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:99}
+@media(max-width:760px){.teamgrid{grid-template-columns:1fr}}
+.authcard .btn,.teampage .btn{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:12px;border:1px solid var(--line-2);font:700 14px Manrope,sans-serif;cursor:pointer;color:var(--text);background:var(--panel)}
+.authcard .btn-lime,.teampage .btn-lime{background:var(--lime);color:#14200a;border-color:transparent}
+.authcard .btn:disabled{opacity:.6;cursor:wait}
+.teampage .btn-ghost{min-height:34px;padding:0 12px}
+.teamgrid .card{margin:0;min-width:0}.teamgrid .scroll{overflow-x:auto}

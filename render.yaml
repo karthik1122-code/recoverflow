@@ -3,15 +3,20 @@ services:
     name: recoverflow
     runtime: node
     plan: free
-    buildCommand: npm test
+    buildCommand: npm ci && npm test
     startCommand: npm start
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: DATABASE_URL
+        sync: false
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         generateValue: true
+      # The first account becomes the administrator, so set this before the URL is public.
+      - key: SETUP_TOKEN
+        sync: false
