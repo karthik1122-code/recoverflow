@@ -290,7 +290,7 @@ dialog h2 { font-size: 22px; letter-spacing: -.03em; margin-top: 4px; }
 .timeline-item { position: relative; padding: 0 0 14px 20px; border-left: 1px solid var(--line-2); font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 .timeline-item::before { content: ''; position: absolute; left: -4px; top: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--lime); }
 .timeline-item span { display: block; font: 10px 'DM Mono'; color: var(--faint); margin-bottom: 2px; }
-.toasts { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 200; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
+.toasts { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 200; display: grid; gap: 8px; justify-items: center; width: max-content; max-width: min(92vw, 440px); pointer-events: none; }
 .toast { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel-2); box-shadow: var(--shadow); font-size: 13px; font-weight: 600; animation: toastIn .35s cubic-bezier(.2, .7, .2, 1) both; }
 .toast.out { animation: toastOut .25s both; }
 .toast svg { color: var(--green); width: 16px; height: 16px; }

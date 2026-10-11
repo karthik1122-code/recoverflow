@@ -463,7 +463,8 @@ function renderOps(m) {
   $('opsDuplicates').textContent = m.duplicates_blocked;
   $('opsSignature').textContent = m.signature_failures;
   $('opsErrors').textContent = m.errors;
-  $('opsStore').textContent = m.store === 'postgres' ? 'Postgres' : 'In memory (resets on restart)';
+  $('opsStore').textContent = m.store === 'postgres' ? 'Postgres' : 'In memory';
+  $('opsStore').title = m.store === 'postgres' ? 'Records are saved in Postgres.' : 'Records are kept in memory and reset when the server restarts.';
   $('opsTag').textContent = m.received ? `${m.received} since start` : 'Listening';
   $('opsTag').classList.toggle('on', m.received > 0);
   const peak = Math.max(1, ...m.per_minute);

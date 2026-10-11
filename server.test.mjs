@@ -42,7 +42,7 @@ test('never serves source files, secrets or traversal paths', async () => {
 test('rejects malformed and oversized bodies', async () => {
   const bad = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: '{not json' });
   assert.equal(bad.status, 400);
-  const big = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: JSON.stringify({ pad: 'x'.repeat(200 * 1024) }) }).catch(() => ({ status: 413 }));
+  const big = await fetch(`${base}/api/diagnose`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: JSON.stringify({ pad: 'x'.repeat(200 * 1024) }) });
   assert.equal(big.status, 413);
 });
 

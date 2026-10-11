@@ -14,6 +14,7 @@
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:84px}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html{overflow-x:clip}
 h1,h2,h3,h4,p{margin:0} a{color:inherit} button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 code,.mono{font-family:'DM Mono',ui-monospace,monospace} code{font-size:.88em;background:var(--panel2);border:1px solid var(--line);padding:1px 6px;border-radius:6px}
 em,.serif{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400}

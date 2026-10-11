@@ -41,8 +41,9 @@ const securityHeaders = {
 class HttpError extends Error { constructor(status, code) { super(code); this.status = status; this.code = code; } }
 
 const readBody = request => new Promise((resolve, reject) => {
-  const chunks = []; let size = 0;
-  request.on('data', c => { size += c.length; if (size > MAX_BODY) { reject(new HttpError(413, 'payload_too_large')); request.destroy(); return; } chunks.push(c); });
+  const chunks = []; let size = 0, over = false;
+  // Past the limit, keep draining (so the client can read the 413) but store nothing, and cut the connection after a second.
+  request.on('data', c => { size += c.length; if (over) return; if (size > MAX_BODY) { over = true; reject(new HttpError(413, 'payload_too_large')); setTimeout(() => request.destroy(), 1000).unref(); return; } chunks.push(c); });
   request.on('end', () => resolve(Buffer.concat(chunks)));
   request.on('error', reject);
 });
