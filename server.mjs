@@ -52,7 +52,8 @@ const readJson = async request => {
   try { return JSON.parse(raw.toString('utf8') || '{}'); } catch { throw new HttpError(400, 'invalid_json'); }
 };
 const reply = (response, status, body, extra = {}) => { response.writeHead(status, {'content-type':'application/json; charset=utf-8','cache-control':'no-store',...securityHeaders,...extra}); response.end(JSON.stringify(body)); };
-const auditEvent = (title, detail, paymentId) => store.addAudit(title, detail, paymentId);
+const playHits = new Map();
+const auditEvent =(title, detail, paymentId) => store.addAudit(title, detail, paymentId);
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
@@ -74,6 +75,18 @@ const server = createServer(async (request, response) => {
       catch (e) { if (e instanceof AuthError) return reply(response, authStatus(e.code), {error:e.code, message:e.message}); throw e; }
     }
     if (AUTH_ON && request.method === 'POST' && url.pathname === '/api/auth/logout') { await auth.logout(token); return reply(response, 200, {ok:true}, {'set-cookie':setCookie(request, '', 0)}); }
+    // Public, stateless demo for the landing page: no audit write, no stored data, rate limited per address.
+    if (request.method === 'POST' && url.pathname === '/api/play/diagnose') {
+      const ip = request.socket.remoteAddress || '?', now = Date.now();
+      const hits = (playHits.get(ip) || []).filter(t => now - t < 60000);
+      if (hits.length >= 60) return reply(response, 429, {error:'rate_limited'});
+      hits.push(now); playHits.set(ip, hits);
+      if (playHits.size > 5000) playHits.clear();
+      const event = await readJson(request);
+      if (!event || typeof event !== 'object' || Array.isArray(event)) throw new HttpError(400, 'invalid_event');
+      const diagnosis = diagnose(event);
+      return reply(response, 200, {diagnosis, decision:policyDecision(event, diagnosis)});
+    }
     if (url.pathname.startsWith('/api/') && !user) return reply(response, 401, {error:'sign_in_required'});
     const need = role => { if (auth.can(user, role)) return false; reply(response, 403, {error:'forbidden', message:`this needs the ${role} role`}); return true; };
     if (url.pathname === '/api/users' || /^\/api\/users\/[\w-]+$/.test(url.pathname)) {
