@@ -36,3 +36,42 @@ export async function createPaymentLink(config, body, { fetchImpl = fetch, timeo
   }
   return { id: data.id, short_url: data.short_url, status: data.status, expire_by: data.expire_by ?? null };
 }
+
+/** Look up the link we may have created for a case, by its reference id. Returns null when none exists. */
+export async function findPaymentLinkByReference(config, referenceId, { fetchImpl = fetch, timeoutMs = 10_000 } = {}) {
+  if (!config?.ready) throw new RazorpayError(config?.reason || 'razorpay_not_configured');
+  const auth = Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64');
+  let response;
+  try {
+    response = await fetchImpl(`${config.base}/v1/payment_links?reference_id=${encodeURIComponent(referenceId)}`, { headers: { authorization: `Basic ${auth}` }, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    throw new RazorpayError('razorpay_unreachable', 'Razorpay did not respond', { cause: String(error?.message || error) });
+  }
+  let data = null;
+  try { data = await response.json(); } catch { /* ignore */ }
+  if (!response.ok) throw new RazorpayError('razorpay_rejected', data?.error?.description || `Razorpay returned ${response.status}`, { status: response.status });
+  const link = (data?.payment_links || []).find(l => l.reference_id === referenceId && l.status !== 'cancelled');
+  return link ? { id: link.id, short_url: link.short_url, status: link.status, expire_by: link.expire_by ?? null } : null;
+}
+
+/**
+ * Stand-in provider for the public demo (DEMO=on and no Razorpay keys). Links are clearly
+ * fake (rzp.io/demo/...) and nothing leaves the server.
+ */
+export function simulatedProvider() {
+  let n = 0;
+  return {
+    ready: true, mode: 'simulated',
+    async createPaymentLink(body) { n += 1; return { id: `plink_demo_${Date.now().toString(36)}${n}`, short_url: `https://rzp.io/demo/${body.reference_id}`, status: 'created', expire_by: body.expire_by ?? null }; },
+    async findPaymentLinkByReference() { return null; },
+  };
+}
+
+/** Real provider bound to config, with the same shape as the simulated one. */
+export function razorpayProvider(config, opts) {
+  return {
+    ready: config.ready, mode: config.mode || null, reason: config.reason,
+    createPaymentLink: body => createPaymentLink(config, body, opts),
+    findPaymentLinkByReference: ref => findPaymentLinkByReference(config, ref, opts),
+  };
+}

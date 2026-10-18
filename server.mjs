@@ -10,7 +10,11 @@ import { createPostgresStore } from './pg-store.mjs';
 import { draftRecoveryMessage } from './messages.mjs';
 import { createMetrics } from './metrics.mjs';
 import { CaseError, initialRecovery, paymentLinkRequest, statusOf, summarize, transition } from './cases.mjs';
-import { createPaymentLink, razorpayConfig } from './razorpay.mjs';
+import { razorpayConfig, razorpayProvider, simulatedProvider } from './razorpay.mjs';
+import { sweepStaleApprovals } from './sweeper.mjs';
+import { buildReport } from './report.mjs';
+import { demoScenarios, paidPayload, testFailurePayload } from './demo.mjs';
+import { createHmac } from 'node:crypto';
 import { createAuth, createMemoryAuthStore, createPostgresAuthStore, AuthError } from './auth.mjs';
 
 const port = Number(process.env.PORT || 4173);
@@ -54,19 +58,26 @@ const readJson = async request => {
   try { return JSON.parse(raw.toString('utf8') || '{}'); } catch { throw new HttpError(400, 'invalid_json'); }
 };
 const reply = (response, status, body, extra = {}) => { response.writeHead(status, {'content-type':'application/json; charset=utf-8','cache-control':'no-store',...securityHeaders,...extra}); response.end(JSON.stringify(body)); };
+const DEMO = process.env.DEMO === 'on';
+const rzConfig = razorpayConfig();
+// Real Razorpay when keys are set. The simulated provider is only ever used by the public demo.
+const provider = rzConfig.ready || !DEMO ? razorpayProvider(rzConfig) : simulatedProvider();
+const LINK_EVENTS = ['payment_link.paid', 'payment_link.expired', 'payment_link.cancelled'];
+const FAILURE_EVENTS = ['payment.failed', 'subscription.pending', 'subscription.halted'];
 const playHits = new Map();
+const pilotHits = new Map();
 const rupee = paise => `₹${((Number(paise) || 0) / 100).toLocaleString('en-IN')}`;
 const maskEmail = e => e ? e.replace(/^(.).*(@.*)$/, '$1•••$2') : null;
 const maskPhone = p => p ? `•••${String(p).slice(-4)}` : null;
 // Viewers see who a case is about without the full contact details.
-const publicCase = r => ({ ...r, customer: { email: maskEmail(r.customer?.email), contact: maskPhone(r.customer?.contact) }, recovery: { ...(r.recovery || initialRecovery(r.decision)), status: statusOf(r) } });
+const publicCase = r => ({ ...r, customer: { name: r.customer?.name || null, email: maskEmail(r.customer?.email), contact: maskPhone(r.customer?.contact) }, recovery: { ...(r.recovery || initialRecovery(r.decision)), status: statusOf(r) } });
 const caseConflict = (response, e) => reply(response, e.code === 'policy_blocked' ? 422 : 409, { error: e.code, message: e.message, status: e.current });
 
-async function handleLinkEvent(payload, response) {
+async function applyLinkEvent(payload) {
   const link = payload?.payload?.payment_link?.entity || {};
   const paid = payload?.payload?.payment?.entity || {};
   const caseId = link.notes?.rf_case;
-  if (!caseId || link.notes?.source !== 'recoverflow') { metrics.record('ignored'); return reply(response, 202, { ignored: true, reason: 'not_a_recoverflow_link' }); }
+  if (!caseId || link.notes?.source !== 'recoverflow') { metrics.record('ignored'); return {status:202, body:{ ignored: true, reason: 'not_a_recoverflow_link' }}; }
   const action = payload.event === 'payment_link.paid' ? 'paid' : 'expired';
   try {
     const updated = await store.updateEvent(caseId, r => {
@@ -75,17 +86,72 @@ async function handleLinkEvent(payload, response) {
     }, r => action === 'paid'
       ? { title: 'Payment recovered', detail: `${rupee(r.recovery.recovered_amount)} paid through link ${link.id}.`, payment_id: r.id }
       : { title: 'Recovery link expired', detail: `Link ${link.id} ${payload.event.split('.')[1]} without payment.`, payment_id: r.id });
-    if (!updated) { metrics.record('ignored'); return reply(response, 202, { ignored: true, reason: 'unknown_case' }); }
+    if (!updated) { metrics.record('ignored'); return {status:202, body:{ ignored: true, reason: 'unknown_case' }}; }
     metrics.record('accepted');
-    return reply(response, 200, { id: updated.id, status: updated.recovery.status });
+    return {status:200, body:{ id: updated.id, status: updated.recovery.status }};
   } catch (e) {
     if (!(e instanceof CaseError)) throw e;
     // A redelivered paid/expired event finds the case already in that state: acknowledge, change nothing.
-    if ((action === 'paid' && e.current === 'recovered') || (action === 'expired' && ['expired', 'recovered'].includes(e.current))) { metrics.record('duplicates_blocked'); return reply(response, 200, { duplicate: true, status: e.current }); }
-    return caseConflict(response, e);
+    if ((action === 'paid' && e.current === 'recovered') || (action === 'expired' && ['expired', 'recovered'].includes(e.current))) { metrics.record('duplicates_blocked'); return {status:200, body:{ duplicate: true, status: e.current }}; }
+    return {status: e.code === 'policy_blocked' ? 422 : 409, body:{ error: e.code, message: e.message, status: e.current }};
   }
 }
-const auditEvent =(title, detail, paymentId) => store.addAudit(title, detail, paymentId);
+
+/** One path for every failure event: real webhooks, the Connect test button and the demo seed. */
+async function ingestFailure(payload, raw, { receivedAt = new Date().toISOString() } = {}) {
+  const idempotencyKey = razorpayEventKey(payload, raw);
+  const outcome = await store.commitWebhook(idempotencyKey, () => {
+    const evaluation = evaluateRazorpayWebhook(payload);
+    if (evaluation.ignored) return {value:{status:202, body:evaluation}};
+    const record = {...evaluation.event, idempotency_key:idempotencyKey, diagnosis:evaluation.diagnosis, decision:evaluation.decision, recovery:initialRecovery(evaluation.decision), received_at:receivedAt};
+    return {
+      event: record,
+      audit: {title:`Webhook received: ${payload.event}`, detail:`${evaluation.diagnosis.label} (${Math.round(evaluation.diagnosis.confidence*100)}% confidence); ${evaluation.decision.status}.`, payment_id:record.id},
+      value: {status:201, body:{id:record.id, diagnosis:evaluation.diagnosis, decision:evaluation.decision}},
+    };
+  });
+  if (outcome.duplicate) { metrics.record('duplicates_blocked'); return {status:200, body:{duplicate:true, idempotency_key:idempotencyKey}}; }
+  metrics.record(outcome.value.status === 201 ? 'accepted' : 'ignored');
+  return outcome.value;
+}
+
+async function approveCase(id, by) {
+  if (!provider.ready) return {status:409, body:{error:provider.reason || 'razorpay_not_configured', message:'Add your Razorpay API keys on the Connect page before approving.'}};
+  let claimed;
+  try {
+    claimed = await store.updateEvent(id, r => transition(r, 'claim', {by}), r => ({title:'Recovery approved', detail:`${by} approved one payment link for ${rupee(r.amount)}.`, payment_id:id}));
+  } catch (e) { if (e instanceof CaseError) return {status: e.code === 'policy_blocked' ? 422 : 409, body:{error:e.code, message:e.message, status:e.current}}; throw e; }
+  if (!claimed) return {status:404, body:{error:'case_not_found'}};
+  let link;
+  try {
+    link = await provider.createPaymentLink(paymentLinkRequest(claimed));
+  } catch (e) {
+    await store.updateEvent(id, r => statusOf(r) === 'approving' ? transition(r, 'release', {error:e.message}) : r, () => ({title:'Payment link failed', detail:`${e.message}. The case is open again; nothing was sent.`, payment_id:id}));
+    return {status:502, body:{error:e.code || 'razorpay_failed', message:e.message}};
+  }
+  const updated = await store.updateEvent(id,
+    r => statusOf(r) === 'approving' ? transition(r, 'link_sent', link) : {...r, recovery:{...r.recovery, link}},
+    r => ({title:'Payment link sent', detail:`Link ${link.id} created in ${provider.mode} mode${provider.mode === 'simulated' ? '; nothing was sent to anyone' : r.customer?.contact || r.customer?.email ? '; Razorpay notified the customer' : '; no customer contact on file, share the link manually'}.`, payment_id:id}));
+  return {status:200, body:{case:publicCase(updated), link}};
+}
+
+async function seedDemo() {
+  for (const { outcome, hoursAgo, payload } of demoScenarios()) {
+    const receivedAt = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
+    const at = minutes => new Date(Date.parse(receivedAt) + minutes * 60_000).toISOString();
+    await ingestFailure(payload, JSON.stringify(payload), { receivedAt });
+    const id = payload.payload.payment.entity.id;
+    if (outcome === 'open' || outcome === 'held') continue;
+    const link = await provider.createPaymentLink({ reference_id: `rf_${id}` });
+    await store.updateEvent(id, r => {
+      let next = transition(r, 'claim', { by: 'demo@recoverflow' }, at(22));
+      next = transition(next, 'link_sent', link, at(23));
+      if (outcome === 'recovered') next = transition(next, 'paid', { amount_paid: r.amount }, at(160));
+      if (outcome === 'expired') next = transition(next, 'expired', {}, at(72 * 60));
+      return next;
+    }, r => ({ title: outcome === 'recovered' ? 'Payment recovered' : outcome === 'expired' ? 'Recovery link expired' : 'Payment link sent', detail: 'Seeded demo history.', payment_id: r.id }));
+  }
+}const auditEvent =(title, detail, paymentId) => store.addAudit(title, detail, paymentId);
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
@@ -119,6 +185,20 @@ const server = createServer(async (request, response) => {
       const diagnosis = diagnose(event);
       return reply(response, 200, {diagnosis, decision:policyDecision(event, diagnosis)});
     }
+    // Public pilot sign-up from the landing page. Stored in the audit chain so it survives restarts on Postgres.
+    if (request.method === 'POST' && url.pathname === '/api/pilot-request') {
+      const ip = request.socket.remoteAddress || '?', now = Date.now();
+      const hits = (pilotHits.get(ip) || []).filter(t => now - t < 3_600_000);
+      if (hits.length >= 5) return reply(response, 429, {error:'rate_limited', message:'Too many requests from this address. Try again in an hour.'});
+      const body = await readJson(request);
+      const clean = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+      const lead = {name:clean(body.name, 80), store:clean(body.store, 160), contact:clean(body.contact, 120), volume:clean(body.volume, 40)};
+      if (body.website) return reply(response, 201, {ok:true}); // honeypot field: bots fill it, people never see it
+      if (!lead.name || !lead.contact || !lead.store) return reply(response, 400, {error:'missing_fields', message:'Add your name, your store and an email or WhatsApp number.'});
+      hits.push(now); pilotHits.set(ip, hits); if (pilotHits.size > 5000) pilotHits.clear();
+      await auditEvent('Pilot request', `${lead.name} (${lead.store}), contact ${lead.contact}${lead.volume ? `, about ${lead.volume} failed payments a month` : ''}.`, 'pilot');
+      return reply(response, 201, {ok:true});
+    }
     if (url.pathname.startsWith('/api/') && !user) return reply(response, 401, {error:'sign_in_required'});
     const need = role => { if (auth.can(user, role)) return false; reply(response, 403, {error:'forbidden', message:`this needs the ${role} role`}); return true; };
     if (url.pathname === '/api/users' || /^\/api\/users\/[\w-]+$/.test(url.pathname)) {
@@ -134,21 +214,8 @@ const server = createServer(async (request, response) => {
       if (!verifyRazorpaySignature(raw, request.headers['x-razorpay-signature'], process.env.RAZORPAY_WEBHOOK_SECRET)) { metrics.record('signature_failures'); return reply(response, 401, {error:'invalid webhook signature'}); }
       let payload; try { payload = JSON.parse(raw.toString('utf8')); } catch { throw new HttpError(400, 'invalid_json'); }
       metrics.record('received');
-      if (/^payment_link\.(paid|expired|cancelled)$/.test(payload?.event)) return handleLinkEvent(payload, response);
-      const idempotencyKey = razorpayEventKey(payload, raw);
-      const outcome = await store.commitWebhook(idempotencyKey, () => {
-        const evaluation = evaluateRazorpayWebhook(payload);
-        if (evaluation.ignored) return {value:{status:202, body:evaluation}};
-        const record = {...evaluation.event, idempotency_key:idempotencyKey, diagnosis:evaluation.diagnosis, decision:evaluation.decision, recovery:initialRecovery(evaluation.decision), received_at:new Date().toISOString()};
-        return {
-          event: record,
-          audit: {title:`Webhook received: ${payload.event}`, detail:`${evaluation.diagnosis.label} (${Math.round(evaluation.diagnosis.confidence*100)}% confidence); ${evaluation.decision.status}.`, payment_id:record.id},
-          value: {status:201, body:{id:record.id, diagnosis:evaluation.diagnosis, decision:evaluation.decision}},
-        };
-      });
-      if (outcome.duplicate) { metrics.record('duplicates_blocked'); return reply(response, 200, {duplicate:true, idempotency_key:idempotencyKey}); }
-      metrics.record(outcome.value.status === 201 ? 'accepted' : 'ignored');
-      return reply(response, outcome.value.status, outcome.value.body);
+      const result = LINK_EVENTS.includes(payload?.event) ? await applyLinkEvent(payload) : await ingestFailure(payload, raw);
+      return reply(response, result.status, result.body);
     }
     if (request.method === 'POST' && url.pathname === '/api/diagnose') {
       if (need('approver')) return;
@@ -171,7 +238,7 @@ const server = createServer(async (request, response) => {
       const {events} = await store.snapshot();
       const status = url.searchParams.get('status');
       const cases = events.filter(e => !status || statusOf(e) === status).map(publicCase);
-      return reply(response, 200, {cases, summary:summarize(events), razorpay:{ready:razorpayConfig().ready, mode:razorpayConfig().mode || null}});
+      return reply(response, 200, {cases, summary:summarize(events), razorpay:{ready:provider.ready, mode:provider.mode || null}});
     }
     const caseRoute = request.method === 'POST' && /^\/api\/cases\/([\w.-]{1,64})\/(approve|dismiss)$/.exec(url.pathname);
     if (caseRoute) {
@@ -185,24 +252,50 @@ const server = createServer(async (request, response) => {
           return updated ? reply(response, 200, {case:publicCase(updated)}) : reply(response, 404, {error:'case_not_found'});
         } catch (e) { if (e instanceof CaseError) return caseConflict(response, e); throw e; }
       }
-      const rz = razorpayConfig();
-      if (!rz.ready) return reply(response, 409, {error:rz.reason, message:'Add Razorpay API keys before approving recoveries.'});
-      let claimed;
-      try {
-        claimed = await store.updateEvent(id, r => transition(r, 'claim', {by}), r => ({title:'Recovery approved', detail:`${by} approved one payment link for ${rupee(r.amount)}.`, payment_id:id}));
-      } catch (e) { if (e instanceof CaseError) return caseConflict(response, e); throw e; }
-      if (!claimed) return reply(response, 404, {error:'case_not_found'});
-      let link;
-      try {
-        link = await createPaymentLink(rz, paymentLinkRequest(claimed));
-      } catch (e) {
-        await store.updateEvent(id, r => statusOf(r) === 'approving' ? transition(r, 'release', {error:e.message}) : r, () => ({title:'Payment link failed', detail:`${e.message}. The case is open again; nothing was sent.`, payment_id:id}));
-        return reply(response, 502, {error:e.code || 'razorpay_failed', message:e.message});
-      }
-      const updated = await store.updateEvent(id,
-        r => statusOf(r) === 'approving' ? transition(r, 'link_sent', link) : {...r, recovery:{...r.recovery, link}},
-        r => ({title:'Payment link sent', detail:`Link ${link.id} created in ${rz.mode} mode${r.customer?.contact || r.customer?.email ? '; Razorpay notified the customer' : '; no customer contact on file, share the link manually'}.`, payment_id:id}));
-      return reply(response, 200, {case:publicCase(updated), link});
+      const result = await approveCase(id, by);
+      return reply(response, result.status, result.body);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/connect') {
+      if (need('viewer')) return;
+      const {events} = await store.snapshot();
+      const proto = secure(request) ? 'https' : 'http';
+      return reply(response, 200, {
+        webhook_url:`${proto}://${request.headers.host}/webhooks/razorpay`,
+        secret_set:!!process.env.RAZORPAY_WEBHOOK_SECRET || DEMO,
+        razorpay:{ready:provider.ready, mode:provider.mode, reason:provider.reason || null},
+        demo:DEMO,
+        merchant_name:process.env.MERCHANT_NAME || (DEMO ? 'Kesari Naturals' : 'your store'),
+        events:[...FAILURE_EVENTS, ...LINK_EVENTS],
+        last_event_at:events.reduce((latest, e) => (e.received_at > latest ? e.received_at : latest), '') || null,
+      });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/connect/test-event') {
+      if (need('admin')) return;
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET || (DEMO ? 'demo-only-secret' : '');
+      if (!secret) return reply(response, 409, {error:'webhook_secret_missing', message:'Set RAZORPAY_WEBHOOK_SECRET first. It must match the secret in your Razorpay webhook settings.'});
+      // Sign exactly like Razorpay does and run the real verification, so a passing test proves the secret works end to end.
+      const payload = testFailurePayload();
+      const raw = Buffer.from(JSON.stringify(payload));
+      const signature = createHmac('sha256', secret).update(raw).digest('hex');
+      if (!verifyRazorpaySignature(raw, signature, secret)) return reply(response, 500, {error:'signature_self_check_failed'});
+      metrics.record('received');
+      const result = await ingestFailure(payload, raw);
+      return reply(response, result.status, result.body);
+    }
+    const demoPay = request.method === 'POST' && /^\/api\/demo\/pay\/([\w.-]{1,64})$/.exec(url.pathname);
+    if (demoPay) {
+      if (need('approver')) return;
+      if (provider.mode !== 'simulated') return reply(response, 404, {error:'not found'});
+      const record = await store.getEvent(demoPay[1]);
+      if (!record) return reply(response, 404, {error:'case_not_found'});
+      if (!record.recovery?.link) return reply(response, 409, {error:'no_link', message:'Send the payment link first.'});
+      const result = await applyLinkEvent(paidPayload(record));
+      return reply(response, result.status, result.body);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/report') {
+      if (need('viewer')) return;
+      const {events} = await store.snapshot();
+      return reply(response, 200, buildReport(events, {days:url.searchParams.get('days') || 7}));
     }
     if (request.method === 'GET' && url.pathname === '/api/metrics') {
       if (need('viewer')) return;
@@ -227,6 +320,11 @@ const server = createServer(async (request, response) => {
       return reply(response, 201, {id:data.id, short_url:data.short_url, status:data.status});
     }
     if (request.method === 'GET' && url.pathname === '/health') return reply(response, 200, {status:'ok'});
+    // The landing page links to /demo. The workspace forwards it to the separate public demo service.
+    if (request.method === 'GET' && url.pathname === '/demo') {
+      const target = DEMO || !/^https:\/\/[\w.-]+(:\d+)?\/?$/.test(process.env.DEMO_URL || '') ? '/app.html' : `${process.env.DEMO_URL.replace(/\/$/, '')}/app.html`;
+      response.writeHead(302, {location:target, ...securityHeaders}); return response.end();
+    }
     if (request.method === 'GET' || request.method === 'HEAD') {
       let requested; try { requested = decodeURIComponent(url.pathname); } catch { throw new HttpError(400, 'bad_path'); }
       if (requested === '/') requested = '/index.html';
@@ -248,4 +346,7 @@ const server = createServer(async (request, response) => {
   }
 });
 setInterval(() => auth.sweep().catch(() => {}), 600_000).unref();
+const STALE_MS = Number(process.env.STALE_APPROVAL_MS || 10 * 60_000);
+setInterval(() => sweepStaleApprovals({store, provider, staleMs:STALE_MS}).catch(e => console.error('sweep failed', e.message)), Math.min(60_000, STALE_MS)).unref();
+if (DEMO && (await store.snapshot()).events.length === 0) await seedDemo();
 server.listen(port, () => console.log(`RecoverFlow ready at http://localhost:${port} (${storeKind}, auth: ${AUTH_ON ? 'accounts' : 'OFF (demo)'})`));

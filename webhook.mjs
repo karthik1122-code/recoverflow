@@ -21,7 +21,10 @@ export function evaluateRazorpayWebhook(payload) {
     retry_count: Number(payment.notes?.retry_count || 0),
     checkout_open_minutes: Number(payment.notes?.checkout_open_minutes || 0),
     received_event: payload.event,
-    customer: { email: payment.email || null, contact: payment.contact || null },
+    customer: { name: payment.notes?.customer_name || null, email: payment.email || null, contact: payment.contact || null },
+    duplicate_suspected: payment.notes?.duplicate_suspected === 'true',
+    dispute_open: payment.notes?.dispute_open === 'true',
+    test_event: payment.notes?.test_event === 'true',
   };
   const diagnosis = diagnose(event);
   const decision = policyDecision(event, diagnosis);

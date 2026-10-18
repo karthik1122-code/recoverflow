@@ -34,3 +34,18 @@ test('surfaces Razorpay rejections, network failures and malformed replies as Ra
   await assert.rejects(createPaymentLink(config, {}, { fetchImpl: respond(200, { id: 'x' }) }), e => e.code === 'razorpay_rejected', 'a 200 without short_url is not a usable link');
   await assert.rejects(createPaymentLink({ ready: false, reason: 'razorpay_not_configured' }, {}), e => e.code === 'razorpay_not_configured');
 });
+
+test('reference lookup returns the live link and ignores cancelled or foreign ones', async () => {
+  const { findPaymentLinkByReference, simulatedProvider } = await import('./razorpay.mjs');
+  let url;
+  const list = links => async u => { url = u; return { ok: true, status: 200, json: async () => ({ payment_links: links }) }; };
+  const found = await findPaymentLinkByReference(config, 'rf_pay_1', { fetchImpl: list([{ id: 'p0', reference_id: 'rf_pay_1', status: 'cancelled' }, { id: 'p1', reference_id: 'rf_pay_1', status: 'created', short_url: 'u' }]) });
+  assert.equal(found.id, 'p1');
+  assert.match(url, /\/v1\/payment_links\?reference_id=rf_pay_1$/);
+  assert.equal(await findPaymentLinkByReference(config, 'rf_pay_2', { fetchImpl: list([{ id: 'x', reference_id: 'rf_other', status: 'created' }]) }), null);
+  await assert.rejects(findPaymentLinkByReference(config, 'r', { fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({}) }) }), e => e.code === 'razorpay_rejected');
+  const sim = simulatedProvider();
+  const link = await sim.createPaymentLink({ reference_id: 'rf_pay_9' });
+  assert.match(link.short_url, /^https:\/\/rzp\.io\/demo\/rf_pay_9$/);
+  assert.equal(sim.mode, 'simulated');
+});

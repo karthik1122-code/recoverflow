@@ -1,27 +1,44 @@
-<div align="center">
+# RecoverFlow
 
-# ⚡ RecoverFlow
+**Get paid for failed Razorpay payments.** RecoverFlow reads every failed payment, explains why it failed in plain words, and sends that customer one Razorpay payment link when someone on your team approves it. When the customer pays, the case closes itself and the money shows in a weekly report.
 
-### Policy-First AI Revenue Recovery & Payment Protection Engine
+Pricing for stores: free for 30 days, then 8% of what comes back, nothing if nothing does.
 
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![Razorpay](https://img.shields.io/badge/Razorpay-Webhook_Integration-02042B?style=for-the-badge&logo=razorpay&logoColor=0079C1)](https://razorpay.com)
-[![Buildathon](https://img.shields.io/badge/Razorpay_AI-Buildathon_2026-6366F1?style=for-the-badge)](https://github.com/karthik1122-code/recoverflow)
-[![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
+[![Verify](https://github.com/karthik1122-code/recoverflow/actions/workflows/verify.yml/badge.svg)](https://github.com/karthik1122-code/recoverflow/actions/workflows/verify.yml)
 
-<br />
+![Landing page](docs/landing.png)
 
-**A policy-first AI revenue recovery agent built for Razorpay AI Buildathon — Track 03: AI Revenue Recovery.**
+| Inbox | A recovered case |
+|---|---|
+| ![Inbox](docs/dashboard-light.png) | ![Recovered case](docs/case.png) |
 
-### [▶ Live demo — recoverflow-ten.vercel.app](https://recoverflow-ten.vercel.app) · [Dashboard](https://recoverflow-ten.vercel.app/app.html)
+| Dark mode | Phone |
+|---|---|
+| ![Dark](docs/dashboard-dark.png) | ![Mobile](docs/mobile.png) |
 
-Synthetic data only · Razorpay Test Mode · every money action needs human approval
+## Run it
 
-</div>
+```bash
+npm ci
+DEMO=on AUTH=off npm run dev     # sample stores, simulated links, no keys needed
+npm test                         # 97 tests; set TEST_DATABASE_URL* to also run the Postgres ones
+```
 
----
+Open `http://localhost:4173` for the site and `/app.html` for the dashboard. In the demo, approve a case, then press **Simulate customer paying** to see the full loop.
 
-RecoverFlow finds revenue at risk, diagnoses the probable cause from payment and customer-intent signals, recommends one bounded recovery action, and preserves an audit trail for every decision.
+For a real store, see [DEPLOY.md](DEPLOY.md). Selling it: [docs/SALES.md](docs/SALES.md).
+
+## Product
+
+| Page | What it does |
+|---|---|
+| Needs approval | Failed payments the safety rules allow you to follow up, with the reason, the evidence and the exact message the customer will get |
+| Waiting for payment | Links that are out; cases close by themselves on `payment_link.paid` |
+| Recovered | Money that came back, with who approved it |
+| Held by safety rules | Duplicates, disputes, no-consent and unclear failures, never contacted automatically |
+| Weekly report | Recovered amount, links sent, why payments failed; prints to PDF for the store owner |
+| Audit trail | Hash-chained log of every webhook, approval and payment |
+| Connect Razorpay | Webhook URL, events to tick, key status, and a signed test failure button |
 
 ## Accounts and roles
 
@@ -53,29 +70,11 @@ open ──approve──► approving ──► link_sent ──payment_link.pai
 - **Safe by default** — `rzp_live_` keys are refused unless `RAZORPAY_MODE=live` is set. Viewers see masked contacts (`•••3210`).
 - `GET /api/cases` returns every case plus a value-weighted summary: at risk, in flight, recovered and recovery rate.
 
-Known limit: if the server dies between claiming a case and Razorpay answering, that case stays `approving`; check Razorpay for a link with reference `rf_<payment id>` before releasing it by hand.
+- **Crash safe** — if the server dies between claiming a case and Razorpay answering, a sweeper asks Razorpay for a link with reference `rf_<payment id>` after 10 minutes: found means the case is marked sent, not found means it is released. Nothing is ever guessed.
 
 ## Why this matters
 
 Revenue loss is rarely a single failure: a payment can time out after OTP, a subscription mandate can fail, a B2B invoice can go overdue, or an otherwise high-intent checkout can be abandoned. Generic retries and mass reminders waste customer trust. RecoverFlow chooses the *least intrusive action that is justified by evidence*.
-
-## Screenshots
-
-![Landing page](docs/landing.png)
-
-| Light (default) | Dark |
-|---|---|
-| ![Dashboard light](docs/dashboard-light.png) | ![Dashboard dark](docs/dashboard-dark.png) |
-
-| Decision lab | Mobile |
-|---|---|
-| ![Decision lab](docs/decision-lab.png) | ![Mobile](docs/mobile.png) |
-
-## Demo
-
-Run the local app, then press **Run recovery sweep**. Review any intervention and approve it to see the recovered-value metric and immutable decision trail update.
-
-No network, credentials, or real payment data are used. The app ships with deliberately synthetic payment records.
 
 ## System design
 
@@ -103,24 +102,9 @@ In production, the diagnosis stage can use an LLM with structured JSON output pl
 - Duplicate-charge and low-confidence cases are held for a human.
 - Every decision includes source evidence and its policy result.
 
-## Metrics shown
-
-- Revenue at risk and recovered amount
-- Recovery rate across the batch
-- AI confidence on eligible recommendations
-- Actions withheld by policy
-- Evidence coverage
-
 ## What broke, and how we handled it
 
 Initially, the recovery logic treated any payment failure as a retry candidate. That would have retried a failed mandate repeatedly and may have contacted customers with a suspected duplicate charge. We added a policy engine that blocks retry-limit breaches, low-confidence diagnoses, and duplicate/dispute signals. Held cases now remain visible in the exception queue instead of being silently dropped.
-
-## Buildathon submission checklist
-
-- [ ] Publish this directory as a public GitHub repository.
-- [ ] Add a short screen recording / deployment link to this README.
-- [ ] Record a five-minute pitch: problem → live sweep → approval gate → metrics → architecture → failure recovery.
-- [ ] Replace the synthetic-demo outcome label with a real test-mode integration only if you can validate it end-to-end.
 
 ## Evaluation
 
@@ -148,10 +132,6 @@ What the first run found: the pattern `fund` matched "Refund processed" and "Fun
 
 The repository includes a Render blueprint and a step-by-step [deployment runbook](DEPLOY.md). It deploys the webhook receiver over HTTPS while keeping Test Mode secrets in the host's environment-variable store.
 
-## Buildathon application
-
-Use [SUBMISSION.md](SUBMISSION.md) for the form answers and five-minute demo flow.
-
 ## Project layout
 
 ```
@@ -163,17 +143,21 @@ metrics.mjs       process counters behind /api/metrics
 store.mjs         in-memory store: atomic webhook commit (claim + record + audit, or nothing)
 pg-store.mjs      same contract on Postgres, one transaction per webhook
 messages.mjs      consent-safe message drafts (English / Hinglish)
-public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
+cases.mjs         recovery case state machine + value-weighted summary
+razorpay.mjs      payment link client, reference lookup, simulated provider for the demo
+sweeper.mjs       finishes or releases approvals left half-done by a crash
+report.mjs        weekly "we got you ₹X back" numbers
+demo.mjs          synthetic Razorpay payloads for the demo and the test button
+public/           index.html (site) + app.html (dashboard), tokens.css design system; the only directory served
 ```
 
 Amounts are always integers in **paise**.
 
 ## UI
 
-Two pages: a motion-rich landing page at `/` (kinetic headline, live engine stream that calls the real `/api/diagnose`, scroll reveals, tilt/magnetic interactions, reduced-motion aware) and the dashboard at `/app.html`.
+The identity is office paperwork: ballpoint-blue ink for actions, a red **Failed** stamp on the payment receipt, a green **Recovered** stamp that lands when the money comes back, and violet stamp ink for cases the safety rules hold. Type is Schibsted Grotesk throughout, with IBM Plex Mono only on the printed receipts. Tokens live in `public/tokens.css`; light and dark follow the system setting and can be switched.
 
-Light-first dashboard with a dark theme toggle, animated recovery sweep, approval gate, live webhook feed and audit-chain verification, a Decision lab that posts editable events to `/api/diagnose`, and a batch simulator. Sweep classifications and the live feed come from the real engine/API; the batch simulator uses clearly labelled illustrative constants. Shortcuts: `R` run sweep, `T` toggle theme.
-
+The dashboard replaces stat cards with a single money bar (recovered, waiting, needs approval, held, sized by value). Every page works at phone width, keeps keyboard focus visible, traps focus in the case drawer, and respects reduced motion.
 ## Reliability
 
 Webhook handling is built to be safe to retry:

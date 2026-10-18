@@ -1,479 +1,417 @@
-'use strict';
+// RecoverFlow dashboard. Plain DOM, no framework. All server text goes through esc().
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const rupees = paise => inr.format(Math.round((Number(paise) || 0) / 100));
+const pct = x => `${Math.round((Number(x) || 0) * 100)}%`;
+const dateFmt = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+const when = iso => { const t = Date.parse(iso); return Number.isFinite(t) ? dateFmt.format(t) : ''; };
+const ago = iso => {
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (!Number.isFinite(s)) return '';
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+};
+
+const REASON = {
+  transient_bank_failure: 'Bank timed out',
+  insufficient_funds: 'Not enough balance',
+  mandate_or_card_issue: 'Card or mandate needs updating',
+  high_intent_abandonment: 'Left at checkout',
+  possible_duplicate: 'Might be a duplicate charge',
+  dispute_risk: 'Customer has a dispute open',
+  retry_limit_reached: 'Already followed up today',
+  unknown: 'Reason unclear',
+};
+const STATUS = { open: 'Needs approval', approving: 'Sending link', link_sent: 'Waiting for payment', recovered: 'Recovered', held: 'Held by safety rules', expired: 'Link expired', dismissed: 'Closed' };
+const POLICY = {
+  HUMAN_GATE: ['Safe to follow up', 'One payment link is allowed once you approve it.'],
+  NO_CONSENT: ['Customer has not agreed to be contacted', 'RecoverFlow never messages someone without consent.'],
+  HIGH_VALUE_REVIEW: ['Over ₹5,00,000', 'Large amounts go to your accounts owner instead.'],
+  EXCEPTION_QUEUE: ['Never followed up automatically', 'Duplicates, disputes and unclear failures need a person to look first.'],
+  LOW_CONFIDENCE: ['Not sure enough about the reason', 'Below the 75% confidence the rules require.'],
+};
+const VIEWS = {
+  inbox: { title: 'Needs approval', sub: 'Failed payments the safety rules allow you to follow up. Nothing is sent until you approve.', match: s => s === 'open' || s === 'approving' },
+  sent: { title: 'Waiting for payment', sub: 'Customers who have a payment link. Cases close by themselves when they pay.', match: s => s === 'link_sent' },
+  recovered: { title: 'Recovered', sub: 'Money that came back after a link you approved.', match: s => s === 'recovered' },
+  held: { title: 'Held by safety rules', sub: 'Failures RecoverFlow will not follow up. Review them, then close them.', match: s => s === 'held' },
+  all: { title: 'All cases', sub: 'Every failed payment RecoverFlow has received.', match: () => true },
+};
+const EMPTY = {
+  inbox: ['Nothing needs you right now', 'New failed payments appear here within seconds of Razorpay sending them.'],
+  sent: ['No links are out', 'Approve a case to send its payment link.'],
+  recovered: ['No recoveries yet', 'When a customer pays through a link, the case lands here with the amount.'],
+  held: ['Nothing held', 'Duplicates, disputes and customers without consent would appear here.'],
+  all: ['No failed payments yet', 'Connect Razorpay, or send a test failure to see how a case looks.'],
+};
+
+const state = { cases: [], summary: null, razorpay: {}, connect: null, me: {}, view: 'inbox', q: '', openId: null, seen: new Set(), reportDays: 7, firstLoad: true };
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? { cache: 'no-store' } : { method: 'POST', body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.message || readableError(data.error) || `Request failed (${res.status})`); e.status = res.status; e.data = data; throw e; }
+  return data;
+}
+function readableError(code) {
+  return {
+    forbidden: 'Your role cannot do this. Ask an admin to make you an approver.',
+    invalid_transition: 'Someone else already acted on this case. It has been refreshed.',
+    razorpay_not_configured: 'Add your Razorpay API keys on the Connect page first.',
+    webhook_secret_missing: 'Set the webhook secret first. See the Connect page.',
+  }[code];
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200);
+}
 
 /* ---------- data ---------- */
-const labScenarios = {
-  timeout: { id: 'lab_timeout', amount: 1249900, error_description: 'issuer network timeout after OTP', customer_opted_in: true, retry_count: 0 },
-  funds: { id: 'lab_funds', amount: 899900, error_description: 'insufficient balance', customer_opted_in: true, retry_count: 0 },
-  duplicate: { id: 'lab_duplicate', amount: 780000, duplicate_suspected: true, customer_opted_in: true, retry_count: 0 },
-  consent: { id: 'lab_consent', amount: 650000, error_description: 'insufficient balance', customer_opted_in: false, retry_count: 0 },
-  retry: { id: 'lab_retry', amount: 1199900, error_description: 'issuer timeout', customer_opted_in: true, retry_count: 1 },
-};
-
-const seedCases = [
-  { id: 'pay_Q8L2', customer: 'Mira Patel', amount: 12499, cause: 'Bank timeout after OTP', driver: 'Bank timeout', confidence: 94, action: 'Retry at 09:30 + secure payment link', status: 'approve', evidence: 'Issuer timeout · previous successful UPI payments · customer still active' },
-  { id: 'pay_F6R9', customer: 'Aarav Mehta', amount: 8999, cause: 'Insufficient balance', driver: 'Insufficient balance', confidence: 89, action: 'Send salary-day retry link', status: 'approve', evidence: 'NSF response · payday is tomorrow · consent is active' },
-  { id: 'pay_B4K1', customer: 'Studio Nila', amount: 45000, cause: 'Invoice overdue, 14 days', driver: 'Overdue invoice', confidence: 96, action: 'Escalate to accounts owner', status: 'approve', evidence: 'B2B invoice · two reminders opened · no dispute flag' },
-  { id: 'pay_Z2P7', customer: 'Kabir Shah', amount: 2499, cause: 'Checkout abandonment', driver: 'Abandoned checkout', confidence: 77, action: 'Send one cart reminder', status: 'approve', evidence: 'Cart open 8 mins · viewed shipping · opted in' },
-  { id: 'pay_J1M5', customer: 'Kavya Iyer', amount: 11999, cause: 'Repeated mandate failure', driver: 'Mandate failure', confidence: 92, action: 'Hold — consent refresh needed', status: 'hold', evidence: '3 failures in 24h · retry limit reached' },
-  { id: 'pay_H7V3', customer: 'Nora Collective', amount: 7800, cause: 'Possible duplicate charge', driver: 'Duplicate risk', confidence: 61, action: 'Hold — human review', status: 'hold', evidence: 'Duplicate fingerprint · low diagnostic confidence' },
-];
-
-let cases = structuredClone(seedCases);
-let audit = [];
-let filter = 'all';
-let activeCase = null;
-let swept = false;
-let serverState = { online: false, events: [], audit: [], integrity: null };
-
-/* ---------- helpers ---------- */
-const $ = (id) => document.getElementById(id);
-const rupees = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = (d = new Date()) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
-
-function setChip(el, text, tone) {
-  el.textContent = text;
-  el.className = `chip chip-${tone}`;
+async function loadCases() {
+  const data = await api('/api/cases');
+  const before = new Set(state.cases.map(c => c.id));
+  state.cases = data.cases;
+  state.summary = data.summary;
+  state.razorpay = data.razorpay;
+  state.fresh = state.firstLoad ? new Set() : new Set(data.cases.filter(c => !before.has(c.id)).map(c => c.id));
+  state.firstLoad = false;
+  renderCounts();
+  renderLedger();
+  if (VIEWS[state.view]) renderTable();
+  if (state.openId) { const c = byId(state.openId); if (c) renderDrawer(c); }
 }
+const byId = id => state.cases.find(c => c.id === id);
+const statusOf = c => c.recovery?.status || 'open';
 
-function toast(message) {
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.innerHTML = `<svg><use href="#i-check"/></svg><span>${esc(message)}</span>`;
-  $('toasts').appendChild(el);
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, 2600);
+/* ---------- counts + ledger ---------- */
+function renderCounts() {
+  const by = state.summary?.by_status || {};
+  const set = (k, n) => { const el = document.querySelector(`[data-count="${k}"]`); if (el) el.textContent = n ? n : ''; };
+  set('open', (by.open || 0) + (by.approving || 0));
+  set('sent', by.link_sent || 0);
+  set('recovered', by.recovered || 0);
+  set('held', by.held || 0);
 }
-
-/** Smoothly count a number to its new value. */
-function countTo(el, to, format = (n) => String(Math.round(n))) {
-  const from = Number(el.dataset.v || 0);
-  el.dataset.v = String(to);
-  if (reduceMotion || from === to) { el.textContent = format(to); return; }
-  const start = performance.now();
-  const duration = 800;
-  const tick = (now) => {
-    const t = Math.min(1, (now - start) / duration);
-    const eased = 1 - Math.pow(1 - t, 3);
-    el.textContent = format(from + (to - from) * eased);
-    if (t < 1) requestAnimationFrame(tick);
+function renderLedger() {
+  const sum = k => state.cases.filter(c => k(statusOf(c))).reduce((s, c) => s + (k === isRec ? (c.recovery?.recovered_amount ?? c.amount) : c.amount), 0);
+  const isRec = s => s === 'recovered';
+  const parts = {
+    recovered: sum(isRec),
+    sent: sum(s => s === 'link_sent' || s === 'approving'),
+    open: sum(s => s === 'open'),
+    held: sum(s => s === 'held'),
   };
-  requestAnimationFrame(tick);
+  const total = Object.values(parts).reduce((a, b) => a + b, 0);
+  $('ledgerBar').innerHTML = total ? Object.entries(parts).filter(([, v]) => v > 0).map(([k, v]) => `<span data-k="${k}" style="flex-grow:${v}"></span>`).join('') : '';
+  $('ledgerBar').setAttribute('aria-label', `${rupees(parts.recovered)} recovered, ${rupees(parts.sent)} waiting for payment, ${rupees(parts.open)} needs approval, ${rupees(parts.held)} held`);
+  $('kRecovered').textContent = rupees(parts.recovered);
+  $('kSent').textContent = rupees(parts.sent);
+  $('kOpen').textContent = rupees(parts.open);
+  $('kHeld').textContent = rupees(parts.held);
+  const rate = state.summary?.recovery_rate || 0;
+  const actioned = (state.summary?.by_status?.recovered || 0) + (state.summary?.by_status?.link_sent || 0) + (state.summary?.by_status?.expired || 0);
+  $('kRate').textContent = actioned ? pct(rate) : '—';
 }
 
-/* ---------- derived numbers ---------- */
-function totals() {
-  const risk = cases.reduce((a, c) => a + c.amount, 0);
-  const recovered = cases.filter((c) => c.outcome === 'recovered').reduce((a, c) => a + c.amount, 0);
-  const eligible = cases.filter((c) => c.status === 'approve');
-  const pending = eligible.filter((c) => !c.outcome);
-  const eligibleValue = eligible.reduce((a, c) => a + c.amount, 0);
-  const avg = eligible.length ? Math.round(eligible.reduce((a, c) => a + c.confidence, 0) / eligible.length) : 0;
-  return { risk, recovered, eligible, pending, eligibleValue, avg, done: cases.filter((c) => c.outcome === 'recovered').length };
-}
-
-/* ---------- renderers ---------- */
-function renderMetrics() {
-  const t = totals();
-  countTo($('atRisk'), t.risk, rupees);
-  countTo($('recovered'), t.recovered, rupees);
-  countTo($('gated'), t.pending.length);
-  countTo($('confidence'), t.avg, (n) => `${Math.round(n)}%`);
-  $('batchInfo').textContent = `across ${cases.length} payment events`;
-  $('recoveryRate').textContent = `${t.eligibleValue ? Math.round((t.recovered / t.eligibleValue) * 100) : 0}%`;
-  $('queueBadge').textContent = t.pending.length;
-  $('riskBar').style.width = `${t.risk ? Math.round((t.eligibleValue / t.risk) * 100) : 0}%`;
-  $('recBar').style.width = `${t.risk ? Math.round((t.recovered / t.risk) * 100) : 0}%`;
-  $('confBar').style.width = `${t.avg}%`;
-  $('gateDots').innerHTML = t.pending.map((_, i) => `<i style="animation-delay:${i * 60}ms"></i>`).join('');
-  $('detected').textContent = cases.length;
-  $('diagnosed').textContent = swept ? cases.length : 0;
-  $('bounded').textContent = swept ? t.eligible.length : 0;
-  $('recoveredCount').textContent = t.done;
-}
-
-function confidenceMeter(c) {
-  const tone = c.confidence >= 85 ? 'var(--green)' : c.confidence >= 70 ? 'var(--amber)' : 'var(--red)';
-  return `<div class="meter"><i style="--w:${c.confidence}%;--c:${tone}"></i><span>${c.confidence}%</span></div>`;
-}
-
-function renderCases() {
-  const shown = cases.filter((c) => filter === 'all' || c.status === filter);
-  if (!shown.length) { $('caseRows').innerHTML = '<tr><td colspan="7" class="empty">No cases in this view.</td></tr>'; return; }
-  $('caseRows').innerHTML = shown.map((c, i) => {
-    const done = c.outcome === 'recovered';
-    return `<tr style="animation-delay:${i * 50}ms">
-      <td><span class="customer">${esc(c.customer)}</span><span class="payment">${esc(c.id)}</span></td>
-      <td class="amount">${rupees(c.amount)}</td>
-      <td><span class="cause">${esc(c.cause)}</span></td>
-      <td>${confidenceMeter(c)}</td>
-      <td><span class="action">${done ? 'Recovered ✓' : esc(c.action)}</span></td>
-      <td><span class="pill ${done ? 'done' : c.status}">${done ? 'COMPLETED' : c.status === 'approve' ? 'APPROVAL REQUIRED' : 'HELD BY POLICY'}</span></td>
-      <td><div class="row-actions"><button class="mini" data-details="${esc(c.id)}">Case file</button>${c.status === 'approve' && !c.outcome ? `<button class="mini go" data-case="${esc(c.id)}">Review</button>` : ''}</div></td>
+/* ---------- table ---------- */
+function renderTable() {
+  const v = VIEWS[state.view];
+  $('casesTitle').textContent = v.title;
+  $('casesSub').textContent = v.sub;
+  document.title = `${v.title} · RecoverFlow`;
+  const q = state.q.trim().toLowerCase();
+  const list = state.cases.filter(c => v.match(statusOf(c))).filter(c => !q || [c.customer?.name, c.id, REASON[c.diagnosis?.label], c.customer?.email].some(x => String(x || '').toLowerCase().includes(q)));
+  $('tableCount').textContent = list.length ? `${list.length} ${list.length === 1 ? 'case' : 'cases'}` : '';
+  $('rows').innerHTML = list.map(c => {
+    const s = statusOf(c);
+    const name = c.customer?.name || c.customer?.email || 'Unknown customer';
+    const amount = s === 'recovered' ? (c.recovery?.recovered_amount ?? c.amount) : c.amount;
+    return `<tr data-id="${esc(c.id)}" class="${state.fresh?.has(c.id) ? 'is-new' : ''}">
+      <td><div class="cust"><button type="button" data-open="${esc(c.id)}">${esc(name)}${c.test_event ? '<span class="tag">Test</span>' : ''}</button><small>${esc(c.customer?.contact || c.customer?.email || c.id)}</small></div></td>
+      <td class="num">${rupees(amount)}</td>
+      <td class="reason">${esc(REASON[c.diagnosis?.label] || REASON.unknown)}</td>
+      <td class="st"><span class="chip" data-s="${s}">${esc(STATUS[s] || s)}</span></td>
+      <td class="when"><time datetime="${esc(c.received_at)}" title="${esc(when(c.received_at))}">${esc(ago(c.received_at))}</time></td>
     </tr>`;
   }).join('');
+  const empty = $('empty');
+  if (!list.length) {
+    const [h, p] = q ? ['No matches', `Nothing in “${v.title}” matches “${state.q}”.`] : EMPTY[state.view];
+    empty.innerHTML = `<h3>${esc(h)}</h3><p>${esc(p)}</p>${!q && state.view === 'all' ? '<a class="btn" href="#connect">Connect Razorpay</a>' : ''}`;
+    empty.hidden = false;
+    $('casesTable').hidden = true;
+  } else { empty.hidden = true; $('casesTable').hidden = false; }
 }
+$('rows').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openCase(tr.dataset.id); });
+$('search').addEventListener('input', e => { state.q = e.target.value; renderTable(); });
 
-function renderAudit() {
-  const local = audit.map((a) => `<div class="audit-item"><div><strong>${esc(a.title)}</strong><p>${esc(a.detail)}</p></div><time>${esc(a.time)}</time></div>`);
-  const remote = serverState.audit.slice(0, 20).map((a) => `<div class="audit-item" style="border-left-color:var(--blue)"><div><strong>${esc(a.title)}</strong><p>${esc(a.detail)} <span class="mono" style="color:var(--faint)">#${esc(String(a.integrity_hash || '').slice(0, 10))}</span></p></div><time>${esc(clock(new Date(a.at)))}</time></div>`);
-  const rows = [...local, ...remote];
-  $('auditLog').innerHTML = rows.length ? rows.join('') : '<p class="empty">No sweep has been run. Every decision will appear here with its evidence, policy status and outcome.</p>';
+/* ---------- drawer ---------- */
+let returnFocus = null;
+function openCase(id) {
+  const c = byId(id); if (!c) return;
+  returnFocus = document.activeElement;
+  state.openId = id;
+  state.mode = null;
+  $('scrim').hidden = false; $('drawer').hidden = false;
+  renderDrawer(c);
+  $('dClose').focus();
 }
-
-function renderDrivers() {
-  const byDriver = new Map();
-  cases.forEach((c) => byDriver.set(c.driver, (byDriver.get(c.driver) || 0) + c.amount));
-  const ranked = [...byDriver.entries()].sort((a, b) => b[1] - a[1]);
-  const max = ranked[0][1];
-  $('topDriver').textContent = ranked[0][0];
-  const share = Math.round((ranked[0][1] / cases.reduce((a, c) => a + c.amount, 0)) * 100);
-  $('driverText').textContent = `${ranked[0][0]} accounts for ${share}% of the value at risk in this batch. RecoverFlow only recommends actions the evidence and policy support.`;
-  $('driverBars').innerHTML = ranked.map(([name, value], i) => `<div class="driver ${i === 0 ? 'top' : ''}" style="animation-delay:${i * 70}ms"><div class="driver-top"><span>${esc(name)}</span><b>${rupees(value)}</b></div><div class="driver-track"><i data-w="${Math.round((value / max) * 100)}"></i></div></div>`).join('');
-  requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.driver-track i').forEach((el) => { el.style.width = `${el.dataset.w}%`; })));
-  const covered = cases.filter((c) => c.evidence).length;
-  $('evidenceCoverage').textContent = `${Math.round((covered / cases.length) * 100)}%`;
+function closeCase() {
+  state.openId = null;
+  $('scrim').hidden = true; $('drawer').hidden = true;
+  if (returnFocus && document.contains(returnFocus)) returnFocus.focus();
 }
-
-function resetDrivers() {
-  $('topDriver').textContent = 'Run a sweep';
-  $('driverText').textContent = 'Run a sweep to rank what is costing you the most, by value at risk.';
-  $('driverBars').innerHTML = '';
-  $('evidenceCoverage').textContent = '0%';
-}
-
-function renderAll() { renderMetrics(); renderCases(); renderAudit(); }
-
-/* ---------- sweep ---------- */
-/** When the API is running, let the real diagnosis + policy engine classify each case. */
-async function classifyWithEngine() {
-  if (!serverState.online) return false;
-  try {
-    const results = await Promise.all(cases.map(async (c) => {
-      const res = await fetch('/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(caseEvent(c)) });
-      if (!res.ok) throw new Error('engine unavailable');
-      return res.json();
-    }));
-    results.forEach((r, i) => {
-      const c = cases[i];
-      c.confidence = Math.round(r.diagnosis.confidence * 100);
-      c.status = r.decision.status === 'approval_required' ? 'approve' : 'hold';
-      c.policy = r.decision.policy_code;
-      c.engineReason = r.decision.reason;
-      c.action = c.status === 'approve' ? (r.diagnosis.recommended_action || c.action) : `Hold — ${r.decision.reason}`;
-    });
-    return true;
-  } catch { return false; }
-}
-
-async function sweep() {
-  const btn = $('runButton');
-  if (btn.disabled) return;
-  btn.disabled = true;
-  swept = false;
-  audit = [];
-  setChip($('engineState'), 'RUNNING', 'warn');
-  $('flowTag').textContent = 'Running';
-  $('flowTag').classList.add('on');
-  const nodes = [...document.querySelectorAll('.node')];
-  const links = [...document.querySelectorAll('.link')];
-  nodes.forEach((n) => n.classList.remove('lit'));
-  const live = await classifyWithEngine();
-  renderCases();
-  const t = totals();
-  const stepCounts = [cases.length, cases.length, t.eligible.length, t.done];
-  const stepIds = ['detected', 'diagnosed', 'bounded', 'recoveredCount'];
-  for (let i = 0; i < nodes.length; i += 1) {
-    nodes[i].classList.add('lit');
-    countTo($(stepIds[i]), stepCounts[i]);
-    if (links[i]) { links[i].classList.remove('run'); void links[i].offsetWidth; links[i].classList.add('run'); }
-    await wait(480);
+$('dClose').addEventListener('click', closeCase);
+$('scrim').addEventListener('click', closeCase);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.openId) closeCase();
+  if (e.key === 'Tab' && state.openId) { // keep focus inside the open drawer
+    const f = [...$('drawer').querySelectorAll('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')].filter(n => !n.disabled && n.offsetParent);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   }
-  swept = true;
-  cases.forEach((c) => audit.push({
-    title: `Diagnosed ${c.id}: ${c.cause}`,
-    detail: `Evidence: ${c.evidence}. Policy outcome: ${c.status === 'approve' ? 'eligible for human approval' : 'held; no money action permitted'}${c.policy ? ` (${c.policy})` : ''}.${live ? ' Classified by the live engine.' : ''}`,
-    time: clock(),
-  }));
-  setChip($('engineState'), 'SWEEP COMPLETE', 'ok');
-  $('flowTag').textContent = 'Complete';
-  renderDrivers();
-  renderAll();
-  btn.disabled = false;
-  toast(`Sweep complete · ${t.eligible.length} eligible, ${cases.length - t.eligible.length} held${live ? ' · live engine' : ''}`);
-  refreshServer();
+});
+
+const ICON_OK = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m6.5 10.2 2.3 2.3 4.7-4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_STOP = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 10h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+function stampFor(c, slam) {
+  const s = statusOf(c);
+  if (s === 'recovered') return `<span class="stamp is-back${slam ? ' slam' : ''}">Recovered<small>${esc(rupees(c.recovery?.recovered_amount ?? c.amount))}</small></span>`;
+  if (s === 'held') return '<span class="stamp is-held">Held</span>';
+  return '<span class="stamp">Failed</span>';
 }
 
-function resetDemo() {
-  cases = structuredClone(seedCases);
-  audit = [];
-  swept = false;
-  document.querySelectorAll('.node').forEach((n) => n.classList.remove('lit'));
-  setChip($('engineState'), 'READY', 'idle');
-  $('flowTag').textContent = 'Idle';
-  $('flowTag').classList.remove('on');
-  resetDrivers();
-  renderAll();
-  toast('Demo reset');
-}
+function renderDrawer(c, { slam = false } = {}) {
+  const s = statusOf(c);
+  const name = c.customer?.name || 'Unknown customer';
+  const policy = POLICY[c.decision?.policy_code] || [c.decision?.reason || 'Policy decision', ''];
+  const ok = c.decision?.status === 'approval_required';
+  const merchant = state.connect?.merchant_name || 'your store';
+  $('dTitle').textContent = name;
+  $('dSub').textContent = `${STATUS[s] || s}. Failed ${when(c.received_at)}.`;
 
-/* ---------- dialogs ---------- */
-function openApproval(id) {
-  activeCase = cases.find((c) => c.id === id);
-  if (!activeCase) return;
-  $('approvalContent').innerHTML = `<div class="dialog-case"><strong>${esc(activeCase.customer)} · ${rupees(activeCase.amount)}</strong><br>${esc(activeCase.action)}<br><br><span class="eyebrow" style="margin:0">Evidence</span>${esc(activeCase.evidence)}<br><br><span class="eyebrow" style="margin:0">Boundary</span>One action only. Automatic retries and further customer contact stay disabled.</div>`;
-  $('approvalDialog').showModal();
-}
+  const contactLine = [c.customer?.contact, c.customer?.email].filter(Boolean).join(' and ') || 'no contact on file';
+  const history = [{ to: 'received', at: c.received_at, label: `Payment failed: ${c.error_description || 'no reason given by the bank'}` }]
+    .concat((c.recovery?.history || []).map(h => ({ to: h.to, at: h.at, label: {
+      approving: `Approved by ${h.by || 'a teammate'}`, link_sent: 'Payment link sent', recovered: 'Customer paid', open: 'Link could not be created; nothing was sent', expired: 'Link expired unpaid', dismissed: `Closed by ${h.by || 'a teammate'}`,
+    }[h.to] || h.to })));
 
-function caseEvent(c) {
-  const lookup = { 'Bank timeout after OTP': 'issuer network timeout', 'Insufficient balance': 'insufficient balance', 'Invoice overdue, 14 days': 'insufficient balance', 'Checkout abandonment': 'checkout abandoned', 'Repeated mandate failure': 'mandate expired', 'Possible duplicate charge': 'duplicate payment' };
-  return {
-    id: c.id,
-    amount: c.amount * 100,
-    error_description: lookup[c.cause] || 'unclassified error',
-    customer_opted_in: c.status === 'approve',
-    retry_count: c.cause === 'Repeated mandate failure' ? 1 : 0,
-    duplicate_suspected: c.cause === 'Possible duplicate charge',
-    checkout_open_minutes: c.cause === 'Checkout abandonment' ? 8 : 0,
-  };
-}
-
-function openCaseFile(id) {
-  const c = cases.find((x) => x.id === id);
-  if (!c) return;
-  const done = c.outcome === 'recovered';
-  const policy = done ? 'Approved and completed' : c.status === 'approve' ? 'Human approval required' : 'Hard stop — no action';
-  const drafting = c.status === 'approve'
-    ? '<div class="case-field"><span>Consent-safe message draft</span><b>Preview only. Nothing is sent.</b><div class="message-tools"><button type="button" class="mini" data-language="en">Draft English</button><button type="button" class="mini" data-language="hinglish">Draft Hinglish</button></div><div class="message-output" id="messageOutput"></div></div>'
-    : '';
-  $('caseTitle').textContent = `${c.customer} · ${c.id}`;
-  $('caseContent').innerHTML = `
-    <div class="case-summary"><div><strong>${esc(c.cause)}</strong><small>AI confidence · ${c.confidence}%</small></div><span class="case-amount">${rupees(c.amount)}</span></div>
-    <div class="case-grid"><div class="case-field"><span>Recommended action</span><b>${done ? 'Recovered ✓' : esc(c.action)}</b></div><div class="case-field"><span>Policy decision</span><b>${esc(policy)}</b></div></div>
-    <div class="case-field"><span>Evidence used</span><ul class="evidence-list">${c.evidence.split(' · ').map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>
-    ${drafting}
-    <div class="timeline"><h3>Recovery timeline</h3>
-      <div class="timeline-item"><span>T+00:00</span>Payment event entered the recovery queue.</div>
-      <div class="timeline-item"><span>T+00:01</span>Diagnosis completed: ${esc(c.cause)}.</div>
-      <div class="timeline-item"><span>T+00:01</span>${c.status === 'approve' ? 'Policy allowed one bounded action and requested human approval.' : 'Policy stopped the workflow and kept the exception visible.'}</div>
-      ${done ? '<div class="timeline-item"><span>T+00:03</span>Human approval recorded; outcome measured as recovered in this demo.</div>' : ''}
+  const link = c.recovery?.link;
+  $('dBody').innerHTML = `
+    <div class="receipt" aria-label="Failed payment receipt">
+      <div class="r-row"><span>Razorpay</span><span>${esc(c.received_event || 'payment.failed')}</span></div>
+      <hr>
+      <div class="r-head"><div class="r-amount">${esc(rupees(c.amount))}</div><div class="r-stamp">${stampFor(c, slam)}</div></div>
+      <div class="r-row"><span>Customer</span><span>${esc(name)}</span></div>
+      <div class="r-row"><span>Payment</span><span>${esc(c.id)}</span></div>
+      <div class="r-row"><span>Failed</span><span>${esc(when(c.received_at))}</span></div>
+      <hr>
+      <div>${esc(c.error_description || 'No reason given by the bank')}</div>
     </div>
-    <div class="case-dialog-footer">${c.status === 'approve' && !done ? '<button type="button" class="btn btn-primary" id="reviewFromFile"><span class="btn-label">Review action</span><svg><use href="#i-arrow"/></svg></button>' : '<button value="cancel" class="btn btn-ghost">Close case file</button>'}</div>`;
-  $('caseDialog').showModal();
-  const review = $('reviewFromFile');
-  if (review) review.onclick = () => { $('caseDialog').close(); openApproval(c.id); };
-  document.querySelectorAll('[data-language]').forEach((b) => { b.onclick = () => draftMessage(c, b.dataset.language); });
+
+    <section class="block">
+      <h3>Why it failed</h3>
+      <p><b>${esc(REASON[c.diagnosis?.label] || REASON.unknown)}</b>. ${Math.round((c.diagnosis?.confidence || 0) * 100)}% sure, based on:</p>
+      <ul class="evidence">${(c.diagnosis?.evidence || []).map(e => `<li>${esc(e)}</li>`).join('')}</ul>
+    </section>
+
+    <section class="block">
+      <h3>Safety check</h3>
+      <div class="verdict" data-ok="${ok}">${ok ? ICON_OK : ICON_STOP}<div><b>${esc(policy[0])}</b><span>${esc(policy[1] || c.decision?.reason || '')}</span></div></div>
+    </section>
+
+    ${ok && s !== 'dismissed' ? `<section class="block sms">
+      <h3>${s === 'open' ? 'What the customer will get' : 'What the customer got'}</h3>
+      <div class="sms-bubble">Payment request from ${esc(merchant)} for ${esc(rupees(c.amount))}. Pay securely: <a href="${esc(link?.short_url || '#')}" ${link ? 'target="_blank" rel="noopener"' : 'tabindex="-1" aria-disabled="true"'}>${esc(link?.short_url || 'rzp.io/…')}</a></div>
+      <small>Sent by Razorpay from your account by SMS and email to ${esc(contactLine)}. Sent once, never repeated.</small>
+    </section>` : ''}
+
+    ${link ? `<section class="block"><h3>Payment link</h3><div class="linkbox"><span>${esc(link.short_url)}</span><button class="btn btn-sm" type="button" data-copy="${esc(link.short_url)}">Copy</button></div></section>` : ''}
+
+    <section class="block">
+      <h3>History</h3>
+      <ol class="timeline">${history.map(h => `<li data-to="${esc(h.to)}">${esc(h.label)}<time datetime="${esc(h.at)}">${esc(when(h.at))}</time></li>`).join('')}</ol>
+    </section>
+    ${c.recovery?.last_error && s === 'open' ? `<p class="notice bad">Last attempt failed: ${esc(c.recovery.last_error)}</p>` : ''}`;
+
+  $('dFoot').innerHTML = footFor(c, s, contactLine);
 }
 
-async function draftMessage(c, language) {
-  const out = $('messageOutput');
-  out.classList.add('visible');
-  out.textContent = 'Creating policy-safe preview…';
-  try {
-    const res = await fetch('/api/draft-message', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: caseEvent(c), language }) });
-    const data = await res.json();
-    if (!res.ok) { out.innerHTML = `<strong>Blocked by policy.</strong> ${esc(data.reason || 'Draft unavailable')}`; return; }
-    out.innerHTML = `${esc(data.message.replace('[PAYMENT_LINK]', '[secure payment link]'))}<small>Draft only. Human approval and an explicit send step are still required.</small>`;
-  } catch {
-    out.innerHTML = 'Start RecoverFlow with <code>npm run dev</code> to generate the server-validated message preview.';
-  }
+function footFor(c, s, contactLine) {
+  if (s === 'open' && state.mode === 'confirm') return `<div class="confirm"><p>Razorpay will send one link for <b>${esc(rupees(c.amount))}</b> to ${esc(contactLine)}.</p><div class="foot-row"><button class="btn btn-pen" type="button" data-act="approve">Send payment link</button><button class="btn" type="button" data-act="cancel">Cancel</button></div></div>`;
+  if ((s === 'open' || s === 'held') && state.mode === 'dismiss') return `<div class="field"><label for="dReason">Why are you closing it? (optional)</label><textarea id="dReason" maxlength="280" placeholder="For example: customer paid by bank transfer"></textarea></div><div class="foot-row"><button class="btn" type="button" data-act="dismiss">Close case</button><button class="btn btn-quiet" type="button" data-act="cancel">Keep it open</button></div>`;
+  if (s === 'open') return `<div class="foot-row"><button class="btn btn-pen btn-lg" type="button" data-act="confirm">Review and send link</button><button class="btn btn-quiet" type="button" data-act="ask-dismiss">Close without contacting</button></div>`;
+  if (s === 'held') return `<p class="notice">The safety rules stop RecoverFlow from contacting this customer. Look into it yourself, then close the case.</p><div class="foot-row"><button class="btn" type="button" data-act="ask-dismiss">Close case</button></div>`;
+  if (s === 'approving') return '<p class="notice">Creating the payment link…</p>';
+  if (s === 'link_sent' && state.razorpay?.mode === 'simulated') return `<p class="notice">Demo only: pretend the customer opened the link and paid.</p><div class="foot-row"><button class="btn btn-back" type="button" data-act="demo-pay">Simulate customer paying</button></div>`;
+  if (s === 'link_sent') return '<p class="notice">This case closes by itself when the customer pays. Links expire after 3 days.</p>';
+  if (s === 'recovered') return `<p class="notice">${esc(rupees(c.recovery?.recovered_amount ?? c.amount))} came back ${esc(ago(c.recovery?.recovered_at))}.</p>`;
+  return '';
 }
 
-$('approvalDialog').addEventListener('close', () => {
-  if ($('approvalDialog').returnValue === 'approve' && activeCase) {
-    activeCase.outcome = 'recovered';
-    audit.unshift({ title: `Approved and recovered ${activeCase.id}`, detail: `Human approved “${activeCase.action}”. Outcome recorded as recovered for this demo simulation. Evidence and policy boundary retained.`, time: clock() });
-    renderAll();
-    if (swept) $('recoveredCount').textContent = totals().done;
-    toast(`${activeCase.customer}: ${rupees(activeCase.amount)} recovered`);
-  }
-  activeCase = null;
-});
-
-/* ---------- decision lab ---------- */
-function highlightJson(obj) {
-  return esc(JSON.stringify(obj, null, 2)).replace(/(&quot;[^&]*?&quot;)(\s*:)?|\b(-?\d+(?:\.\d+)?)\b|\b(true|false|null)\b/g, (m, str, colon, num, lit) => {
-    if (str) return colon ? `<span class="j-k">${str}</span>${colon}` : `<span class="j-s">${str}</span>`;
-    return `<span class="j-n">${num || lit}</span>`;
-  });
-}
-
-function loadScenario() { $('eventJson').value = JSON.stringify(labScenarios[$('scenarioSelect').value], null, 2); }
-
-async function evaluateLab() {
-  const btn = $('evaluateButton');
-  const result = $('decisionResult');
-  let event;
-  try { event = JSON.parse($('eventJson').value); } catch { result.innerHTML = '<span class="verdict hold">INVALID JSON</span><br>Fix the event JSON and try again.'; return; }
+$('drawer').addEventListener('click', async e => {
+  const copy = e.target.closest('[data-copy]');
+  if (copy) { try { await navigator.clipboard.writeText(copy.dataset.copy); toast('Link copied'); } catch { toast('Copy failed. Select the link and copy it.'); } return; }
+  const btn = e.target.closest('[data-act]'); if (!btn) return;
+  const c = byId(state.openId); if (!c) return;
+  const act = btn.dataset.act;
+  if (act === 'confirm') { state.mode = 'confirm'; renderDrawer(c); $('dFoot').querySelector('[data-act="approve"]').focus(); return; }
+  if (act === 'ask-dismiss') { state.mode = 'dismiss'; renderDrawer(c); $('dReason')?.focus(); return; }
+  if (act === 'cancel') { state.mode = null; renderDrawer(c); return; }
   btn.disabled = true;
-  btn.querySelector('.btn-label').textContent = 'Evaluating…';
-  result.innerHTML = '<span class="muted">Evaluating evidence and policy…</span>';
   try {
-    const res = await fetch('/api/diagnose', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(event) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'service unavailable');
-    const pct = Math.round(data.diagnosis.confidence * 100);
-    const allowed = data.decision.status === 'approval_required';
-    result.innerHTML = `<span class="verdict ${allowed ? 'ok' : 'hold'}">${allowed ? 'APPROVAL REQUIRED' : 'HELD BY POLICY'} · ${esc(data.decision.policy_code)}</span><br>Diagnosis: <strong>${esc(data.diagnosis.label.replaceAll('_', ' '))}</strong> (${pct}% confidence). ${esc(allowed ? data.diagnosis.recommended_action : data.decision.reason)}<pre>${highlightJson(data)}</pre>`;
-    refreshServer();
-  } catch {
-    result.innerHTML = '<span class="verdict hold">SERVICE OFFLINE</span><br>Start RecoverFlow with <code>npm run dev</code> to use the live decision service.';
-  } finally {
+    if (act === 'approve') {
+      btn.textContent = 'Sending…';
+      const r = await api(`/api/cases/${encodeURIComponent(c.id)}/approve`, {});
+      state.mode = null;
+      await loadCases();
+      toast(state.razorpay?.mode === 'simulated' ? 'Payment link sent (simulated)' : 'Payment link sent');
+      if (!r.case) return;
+    }
+    if (act === 'dismiss') {
+      await api(`/api/cases/${encodeURIComponent(c.id)}/dismiss`, { reason: $('dReason')?.value || '' });
+      state.mode = null;
+      await loadCases();
+      toast('Case closed');
+    }
+    if (act === 'demo-pay') {
+      await api(`/api/demo/pay/${encodeURIComponent(c.id)}`, {});
+      await loadCases();
+      const fresh = byId(c.id);
+      if (fresh) renderDrawer(fresh, { slam: true });
+      toast(`${rupees(c.amount)} recovered`);
+    }
+  } catch (err) {
+    toast(err.message);
+    if (err.status === 409) await loadCases();
     btn.disabled = false;
-    btn.querySelector('.btn-label').textContent = 'Evaluate event';
   }
-}
+});
 
-/* ---------- simulator (illustrative model) ---------- */
-function simulateBatch() {
-  const volume = Number($('volumeSelect').value);
-  const avg = 8600, recoverable = 0.72;
-  const atRisk = volume * avg;
-  const genericRecovered = Math.round(atRisk * recoverable * 0.31);
-  const rfRecovered = Math.round(atRisk * recoverable * 0.52);
-  const waste = Math.round(volume * 0.28), protectedCases = Math.round(volume * 0.28);
-  const genericReviews = Math.round(volume * 0.64), rfReviews = Math.round(volume * 0.37);
-  $('genericRecovered').textContent = rupees(genericRecovered);
-  $('genericWaste').textContent = `${waste} actions`;
-  $('genericReviews').textContent = `${genericReviews} cases`;
-  $('rfRecovered').textContent = rupees(rfRecovered);
-  $('rfProtected').textContent = `${protectedCases} cases`;
-  $('rfReviews').textContent = `${rfReviews} cases`;
-  $('genericBar').style.width = `${Math.round((genericRecovered / rfRecovered) * 100)}%`;
-  $('rfBar').style.width = '100%';
-  $('simInsight').innerHTML = `<strong>Scenario result:</strong> RecoverFlow recovers <strong>${rupees(rfRecovered - genericRecovered)}</strong> more from this ${volume}-event synthetic batch while holding ${protectedCases} unsafe or low-signal cases. Assumptions: ₹${avg.toLocaleString('en-IN')} average at-risk value, ${Math.round(recoverable * 100)}% recoverable events, one action per customer. This is a reproducible demo model, not a live merchant performance claim.`;
-}
-
-/* ---------- server state ---------- */
-async function refreshServer() {
+/* ---------- test failure ---------- */
+$('testBtn').addEventListener('click', async () => {
+  const b = $('testBtn'); b.disabled = true;
   try {
-    const res = await fetch('/api/audit', { cache: 'no-store' });
-    if (!res.ok) throw new Error('bad status');
-    const data = await res.json();
-    serverState = { online: true, events: data.events || [], audit: data.audit || [], integrity: data.integrity };
-  } catch {
-    serverState = { online: false, events: [], audit: [], integrity: null };
-  }
-  renderServer();
-  renderAudit();
+    const r = await api('/api/connect/test-event', {});
+    location.hash = '#inbox';
+    await loadCases();
+    toast('Test failure received. It is at the top of the list.');
+    if (r.id) openCase(r.id);
+  } catch (err) { toast(err.message); }
+  finally { b.disabled = false; }
+});
+
+/* ---------- report ---------- */
+async function renderReport() {
+  const r = await api(`/api/report?days=${state.reportDays}`);
+  const max = Math.max(1, ...r.top_reasons.map(x => x.amount));
+  const period = r.days === 7 ? 'the last 7 days' : `the last ${r.days} days`;
+  $('report').innerHTML = `
+    <p class="report-lead">Recovered in ${esc(period)}</p>
+    <p class="report-big">${esc(rupees(r.recovered_amount))}</p>
+    <p class="report-line">${r.recovered_count ? `${r.recovered_count} ${r.recovered_count === 1 ? 'customer' : 'customers'} paid after a link you approved.` : 'No payments came back in this period yet.'} ${r.links_sent ? `${r.recovered_count} of ${r.links_sent} links sent were paid.` : ''}</p>
+    <dl class="report-grid">
+      <div><dt>Failed payments</dt><dd>${r.failed_count}</dd></div>
+      <div><dt>Value of failures</dt><dd>${esc(rupees(r.failed_amount))}</dd></div>
+      <div><dt>Links sent</dt><dd>${r.links_sent}</dd></div>
+    </dl>
+    ${r.top_reasons.length ? `<h3>Why payments failed</h3><ul class="bars">${r.top_reasons.map(x => `<li><span>${esc(REASON[x.label] || x.label)}</span><span class="bar"><span style="width:${Math.max(2, Math.round((x.amount / max) * 100))}%"></span></span><span>${esc(rupees(x.amount))}</span></li>`).join('')}</ul>` : ''}
+    ${r.recovered.length ? `<h3>Who paid</h3><ul class="paid-list">${r.recovered.map(x => `<li><span>${esc(x.name || x.id)} <span class="hint">${esc(when(x.recovered_at))}</span></span><b>${esc(rupees(x.amount))}</b></li>`).join('')}</ul>` : ''}`;
 }
-
-function renderServer() {
-  const { online, events, audit: chain, integrity } = serverState;
-  setChip($('serverState'), online ? 'ONLINE' : 'OFFLINE DEMO', online ? 'ok' : 'warn');
-  if (!online) { setChip($('chainState'), 'N/A', 'idle'); setChip($('auditChain'), 'Local session', 'idle'); }
-  else if (!chain.length) { setChip($('chainState'), 'EMPTY', 'idle'); setChip($('auditChain'), 'Chain ready', 'idle'); }
-  else { const ok = integrity && integrity.valid; setChip($('chainState'), ok ? `VERIFIED · ${chain.length}` : 'BROKEN', ok ? 'ok' : 'bad'); setChip($('auditChain'), ok ? `Hash chain verified · ${chain.length}` : 'Chain broken', ok ? 'ok' : 'bad'); }
-  $('navLive').hidden = !events.length;
-  $('feedTag').textContent = events.length ? `${events.length} received` : online ? 'Listening' : 'Offline';
-  $('feedTag').classList.toggle('on', events.length > 0);
-  $('feed').innerHTML = events.length
-    ? events.slice(0, 12).map((e) => {
-      const allowed = e.decision && e.decision.status === 'approval_required';
-      return `<div class="feed-item"><span class="pill ${allowed ? 'approve' : 'hold'}">${allowed ? 'APPROVAL' : 'HELD'}</span><div><b>${esc(e.id)} · ${rupees((e.amount || 0) / 100)}</b><p>${esc(String(e.diagnosis?.label || '').replaceAll('_', ' '))} · ${esc(e.decision?.policy_code || '')}</p></div><time>${esc(clock(new Date(e.received_at)))}</time></div>`;
-    }).join('')
-    : '<p class="empty">No webhook events yet. When one arrives it is verified, diagnosed, policy-checked and shown here.</p>';
-}
-
-/* ---------- wiring ---------- */
-function setTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  try { localStorage.setItem('rf-theme', theme); } catch { /* storage blocked */ }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#07100c' : '#f3f6f1');
-}
-const toggleTheme = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-
-$('runButton').onclick = sweep;
-$('resetButton').onclick = resetDemo;
-$('themeToggle').onclick = toggleTheme;
-$('scenarioSelect').onchange = loadScenario;
-$('evaluateButton').onclick = evaluateLab;
-$('simulateButton').onclick = simulateBatch;
-$('copyEndpoint').onclick = async () => { try { await navigator.clipboard.writeText($('endpointUrl').textContent); toast('Webhook URL copied'); } catch { toast('Select the URL and copy it'); } };
-
-document.querySelectorAll('.seg-btn').forEach((b) => b.addEventListener('click', () => {
-  filter = b.dataset.filter;
-  document.querySelectorAll('.seg-btn').forEach((x) => { const on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', String(on)); });
-  renderCases();
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  state.reportDays = Number(b.dataset.days);
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  renderReport().catch(e => toast(e.message));
 }));
+$('printBtn').addEventListener('click', () => window.print());
 
-$('caseRows').addEventListener('click', (e) => {
-  const review = e.target.closest('[data-case]');
-  const details = e.target.closest('[data-details]');
-  if (review) openApproval(review.dataset.case);
-  else if (details) openCaseFile(details.dataset.details);
-});
-
-$('downloadButton').onclick = () => {
-  const blob = new Blob([JSON.stringify({ generatedAt: new Date().toISOString(), cases, audit, serverAudit: serverState.audit, policy: 'One action per 24h; explicit approval required; contact opt-outs enforced.' }, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'recoverflow-audit.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('Audit exported');
-};
-
-const sidebar = $('sidebar');
-const closeMenu = () => { sidebar.classList.remove('open'); $('scrim').hidden = true; $('menuBtn').setAttribute('aria-expanded', 'false'); };
-$('menuBtn').onclick = () => { const open = sidebar.classList.toggle('open'); $('scrim').hidden = !open; $('menuBtn').setAttribute('aria-expanded', String(open)); };
-$('scrim').onclick = closeMenu;
-sidebar.addEventListener('click', (e) => { if (e.target.closest('a')) closeMenu(); });
-
-document.addEventListener('keydown', (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.querySelector('dialog[open]')) return;
-  if (e.key === 'r' || e.key === 'R') sweep();
-  if (e.key === 't' || e.key === 'T') toggleTheme();
-});
-
-// Scroll reveal + active nav
-const revealTargets = document.querySelectorAll('.kpis, .grid-2 > *, .queue, .live, .lab, .sim, .audit, .policy, .footer');
-if ('IntersectionObserver' in window && !reduceMotion) {
-  const io = new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: 0.08 });
-  revealTargets.forEach((el) => { el.classList.add('reveal'); io.observe(el); });
-  const navLinks = [...document.querySelectorAll('[data-nav]')];
-  const spy = new IntersectionObserver((entries) => entries.forEach((en) => {
-    if (en.isIntersecting) navLinks.forEach((a) => a.classList.toggle('active', a.dataset.nav === en.target.id));
-  }), { rootMargin: '-35% 0px -55% 0px' });
-  ['overview', 'cases', 'live', 'lab', 'audit', 'policy'].forEach((id) => { const el = $(id); if (el) spy.observe(el); });
+/* ---------- audit ---------- */
+async function renderAudit() {
+  const r = await api('/api/audit');
+  const chain = $('chain');
+  chain.dataset.ok = String(r.integrity.valid);
+  chain.textContent = r.integrity.valid ? `Chain intact, ${r.integrity.records} entries` : `Chain broken at entry ${r.integrity.index + 1}`;
+  $('audit').innerHTML = r.audit.length ? r.audit.map(a => `<li><time datetime="${esc(a.at)}">${esc(when(a.at))}</time><div><b>${esc(a.title)}</b><p>${esc(a.detail)}</p><code>${esc(a.payment_id)} · ${esc(String(a.integrity_hash).slice(0, 12))}</code></div></li>`).join('') : '<li><div><b>No entries yet</b><p>Every webhook and decision will be recorded here.</p></div></li>';
 }
 
-$('year').textContent = new Date().getFullYear();
-$('endpointUrl').textContent = `${location.origin}/webhooks/razorpay`;
-loadScenario();
-renderAll();
-refreshServer();
-/* ---------- operations ---------- */
-async function refreshOps() {
+/* ---------- connect ---------- */
+async function loadConnect() { state.connect = await api('/api/connect'); renderConnectDot(); return state.connect; }
+function renderConnectDot() {
+  const c = state.connect; if (!c) return;
+  $('connectDot').hidden = !!(c.secret_set && c.razorpay?.ready) || c.demo;
+  $('demoNote').hidden = !c.demo;
+}
+async function renderConnect() {
+  const c = await loadConnect();
+  const live = c.razorpay?.mode;
+  const keysText = c.razorpay?.ready ? (live === 'simulated' ? 'Demo: links are simulated' : `Connected in ${live} mode`) : c.razorpay?.reason === 'live_keys_need_RAZORPAY_MODE_live' ? 'Live keys found. Set RAZORPAY_MODE=live to use them.' : 'Not connected yet';
+  $('steps').innerHTML = `
+    <li data-done="${c.secret_set}">
+      <div>
+        <h3>Send failed payments to RecoverFlow</h3>
+        <p>In Razorpay, open <b>Account &amp; Settings</b>, then <b>Webhooks</b>, and add a webhook with this URL:</p>
+        <div class="linkbox"><span>${esc(c.webhook_url)}</span><button class="btn btn-sm" type="button" data-copy="${esc(c.webhook_url)}">Copy</button></div>
+        <p style="margin-top:12px">Tick these events:</p>
+        <ul>${c.events.map(e => `<li><code>${esc(e)}</code></li>`).join('')}</ul>
+        <p>Choose a long random secret, paste it into Razorpay, and set the same value as <code>RAZORPAY_WEBHOOK_SECRET</code> on your server.</p>
+        <span class="state" data-ok="${c.secret_set}">${c.secret_set ? 'Webhook secret is set' : 'Webhook secret is missing'}</span>
+      </div>
+    </li>
+    <li data-done="${!!c.razorpay?.ready}">
+      <div>
+        <h3>Let RecoverFlow create payment links</h3>
+        <p>In Razorpay, open <b>Account &amp; Settings</b>, then <b>API Keys</b>. Start with test mode keys. Set them as <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code>.</p>
+        <p>Live keys only work after you also set <code>RAZORPAY_MODE=live</code>, so a test setup can never move real money.</p>
+        <span class="state" data-ok="${!!c.razorpay?.ready}">${esc(keysText)}</span>
+      </div>
+    </li>
+    <li data-done="${!!c.last_event_at}">
+      <div>
+        <h3>Check it works</h3>
+        <p>Send a signed test failure through the same path Razorpay uses. It shows up in your inbox marked “Test”.</p>
+        <p><button class="btn btn-pen" type="button" id="connectTest">Send a test failure</button></p>
+        <span class="state" data-ok="${!!c.last_event_at}">${c.last_event_at ? `Last failure received ${esc(ago(c.last_event_at))}` : 'No failures received yet'}</span>
+      </div>
+    </li>`;
+}
+$('steps').addEventListener('click', async e => {
+  const copy = e.target.closest('[data-copy]');
+  if (copy) { try { await navigator.clipboard.writeText(copy.dataset.copy); toast('Copied'); } catch { toast('Copy failed. Select the text and copy it.'); } return; }
+  if (e.target.id === 'connectTest') $('testBtn').click();
+});
+
+/* ---------- routing ---------- */
+async function route() {
+  const v = (location.hash.slice(1) || 'inbox');
+  state.view = ['inbox', 'sent', 'recovered', 'held', 'all', 'report', 'audit', 'connect'].includes(v) ? v : 'inbox';
+  document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  const section = VIEWS[state.view] ? 'cases' : state.view;
+  document.querySelectorAll('.view').forEach(s => { s.hidden = s.id !== `view-${section}`; });
   try {
-    const res = await fetch('/api/metrics', { cache: 'no-store' });
-    if (!res.ok) throw new Error('bad status');
-    renderOps(await res.json());
-  } catch {
-    $('opsTag').textContent = 'Offline';
-    $('opsTag').classList.remove('on');
-  }
+    if (section === 'cases') renderTable();
+    if (section === 'report') { document.title = 'Weekly report · RecoverFlow'; await renderReport(); }
+    if (section === 'audit') { document.title = 'Audit trail · RecoverFlow'; await renderAudit(); }
+    if (section === 'connect') { document.title = 'Connect Razorpay · RecoverFlow'; await renderConnect(); }
+  } catch (e) { toast(e.message); }
 }
+window.addEventListener('hashchange', () => { route(); $('main').focus({ preventScroll: true }); });
 
-function renderOps(m) {
-  $('opsReceived').textContent = m.received;
-  $('opsAccepted').textContent = m.accepted;
-  $('opsDuplicates').textContent = m.duplicates_blocked;
-  $('opsSignature').textContent = m.signature_failures;
-  $('opsErrors').textContent = m.errors;
-  $('opsStore').textContent = m.store === 'postgres' ? 'Postgres' : 'In memory';
-  $('opsStore').title = m.store === 'postgres' ? 'Records are saved in Postgres.' : 'Records are kept in memory and reset when the server restarts.';
-  $('opsTag').textContent = m.received ? `${m.received} since start` : 'Listening';
-  $('opsTag').classList.toggle('on', m.received > 0);
-  const peak = Math.max(1, ...m.per_minute);
-  $('opsSpark').innerHTML = m.per_minute.map((n, i) => `<i style="height:${Math.max(4, Math.round((n / peak) * 100))}%" class="${n ? 'hot' : ''}" title="${n} in minute ${i - m.per_minute.length + 1 || 'now'}"></i>`).join('');
-  const rows = Object.entries(m.by_diagnosis);
-  $('opsMix').innerHTML = rows.length
-    ? rows.sort((a, b) => b[1] - a[1]).map(([label, n]) => `<span class="chip chip-idle">${label.replace(/_/g, ' ')} · ${n}</span>`).join('')
-    : '<span class="muted-text">No diagnosed events yet.</span>';
-}
+$('themeBtn').addEventListener('click', () => { const t = window.rfToggleTheme(); $('themeBtn').textContent = t === 'dark' ? 'Light mode' : 'Dark mode'; });
+$('themeBtn').textContent = document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode';
 
-refreshOps();
-setInterval(() => { if (!document.hidden) { refreshServer(); refreshOps(); } }, 6000);
+/* ---------- boot ---------- */
+(async () => {
+  state.me = await (window.rfMe || Promise.resolve({}));
+  try { await Promise.all([loadCases(), loadConnect()]); } catch (e) { toast(e.message); }
+  await route();
+  // Webhooks arrive at any time; refresh quietly while the tab is visible.
+  setInterval(() => { if (!document.hidden) loadCases().catch(() => {}); }, 8000);
+})();

@@ -86,10 +86,33 @@ test('test payment links are disabled unless explicitly enabled', async () => {
 test('landing page, dashboard and their assets are served', async () => {
   const home = await fetch(`${base}/`);
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /Recover revenue/);
-  for (const path of ['/app.html', '/landing.css', '/landing.js', '/app.js', '/styles.css']) {
-    assert.equal((await fetch(`${base}${path}`)).status, 200, path);
+  assert.match(await home.text(), /failed payment is a customer who wanted to buy/);
+  // Every local file any page links to must exist, so a rename can never ship a broken page.
+  for (const page of ['/index.html', '/app.html', '/login.html', '/team.html']) {
+    const html = await (await fetch(`${base}${page}`)).text();
+    const refs = [...html.matchAll(/(?:src|href)="([^"#:]+\.(?:css|js|png|svg))"/g)].map(m => `/${m[1].replace(/^\//, '')}`);
+    assert.ok(refs.length >= 2, `${page} links its assets`);
+    for (const path of refs) assert.equal((await fetch(`${base}${path}`)).status, 200, `${page} -> ${path}`);
   }
+});
+
+test('/demo forwards to the dashboard when no separate demo is configured', async () => {
+  const res = await fetch(`${base}/demo`, { redirect: 'manual' });
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get('location'), '/app.html');
+});
+
+test('pilot requests are validated, rate limited per address and land in the audit trail', async () => {
+  const send = body => fetch(`${base}/api/pilot-request`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: JSON.stringify(body) });
+  assert.equal((await send({ name: 'Asha' })).status, 400);
+  assert.equal((await send({ name: 'Bot', store: 'x', contact: 'y', website: 'spam.example' })).status, 201, 'honeypot answers 201 but stores nothing');
+  assert.equal((await send({ name: 'Asha Rao', store: 'ashacrafts.in', contact: '+91 98000 00000', volume: '20 to 100' })).status, 201);
+  const audit = await (await fetch(`${base}/api/audit`)).json();
+  const leads = audit.audit.filter(a => a.title === 'Pilot request');
+  assert.equal(leads.length, 1);
+  assert.match(leads[0].detail, /Asha Rao \(ashacrafts\.in\)/);
+  for (let i = 0; i < 4; i += 1) await send({ name: 'N', store: 's', contact: 'c' });
+  assert.equal((await send({ name: 'N', store: 's', contact: 'c' })).status, 429);
 });
 
 test('metrics reflect what the webhook endpoint actually did', async () => {

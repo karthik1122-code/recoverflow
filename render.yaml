@@ -1,22 +1,47 @@
+# Two services from one repo:
+#   recoverflow       the real workspace for pilot stores (accounts on, Postgres, your Razorpay keys)
+#   recoverflow-demo  the public demo linked from the landing page (sample data, simulated links, no keys)
 services:
   - type: web
     name: recoverflow
     runtime: node
-    plan: free
+    plan: starter   # always on; the free plan sleeps, which delays webhooks until Razorpay retries
     buildCommand: npm ci && npm test
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: 22
-      - key: DATABASE_URL
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL        # Postgres connection string (Render Postgres or Neon)
         sync: false
-      - key: RAZORPAY_KEY_ID
+      - key: RAZORPAY_KEY_ID     # start with rzp_test_ keys
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         generateValue: true
-      # The first account becomes the administrator, so set this before the URL is public.
-      - key: SETUP_TOKEN
+      - key: SETUP_TOKEN         # needed to create the first admin; set before sharing the URL
+        generateValue: true
+      - key: MERCHANT_NAME       # shown in the customer message preview
         sync: false
+      - key: DEMO_URL            # e.g. https://recoverflow-demo.onrender.com, where /demo sends visitors
+        sync: false
+      # - key: RAZORPAY_MODE     # set to "live" only when you switch to rzp_live_ keys
+      #   value: live
+
+  - type: web
+    name: recoverflow-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DEMO
+        value: "on"
+      - key: AUTH
+        value: "off"

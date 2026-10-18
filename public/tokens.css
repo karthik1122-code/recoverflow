@@ -1,0 +1,163 @@
+/* RecoverFlow design tokens.
+   Identity: office paperwork. Ballpoint-blue ink for actions, a red "failed" stamp,
+   a green "recovered" stamp, violet stamp ink for cases the safety rules hold.
+   Type: Schibsted Grotesk everywhere; IBM Plex Mono only on printed receipts. */
+:root {
+  --paper: #f2f3f5;
+  --sheet: #ffffff;
+  --sheet-2: #f8f9fb;
+  --ink: #151a30;
+  --ink-2: #4a5068;
+  --ink-3: #737a93;
+  --rule: #e1e4ea;
+  --rule-2: #cbd0da;
+  --pen: #2a3cb8;
+  --pen-hover: #1f2e98;
+  --pen-on: #ffffff;
+  --pen-soft: #e9ecfb;
+  --back: #0b7a55;
+  --back-soft: #e1f2ea;
+  --lost: #c2362b;
+  --lost-soft: #fbe8e5;
+  --wait: #a2650c;
+  --wait-soft: #fbf0db;
+  --held: #5c47a8;
+  --held-soft: #eeeaf8;
+  --shadow-sheet: 0 1px 2px rgba(21, 26, 48, .06), 0 8px 24px -12px rgba(21, 26, 48, .18);
+  --shadow-float: 0 2px 6px rgba(21, 26, 48, .08), 0 24px 60px -20px rgba(21, 26, 48, .35);
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --font: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --paper: #0e1222;
+  --sheet: #161b2f;
+  --sheet-2: #1b2137;
+  --ink: #e9ecf5;
+  --ink-2: #a9b0c6;
+  --ink-3: #7c849e;
+  --rule: #262d46;
+  --rule-2: #353d5a;
+  --pen: #8e9cff;
+  --pen-hover: #a7b2ff;
+  --pen-on: #0e1222;
+  --pen-soft: #212a52;
+  --back: #3ccb94;
+  --back-soft: #12352a;
+  --lost: #ff7b6b;
+  --lost-soft: #3a1c1c;
+  --wait: #e8ad4e;
+  --wait-soft: #35290f;
+  --held: #ab98f4;
+  --held-soft: #2a2349;
+  --shadow-sheet: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -14px rgba(0, 0, 0, .7);
+  --shadow-float: 0 2px 6px rgba(0, 0, 0, .4), 0 30px 70px -20px rgba(0, 0, 0, .8);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.tnum, .num { font-variant-numeric: tabular-nums; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 15px/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--pen); text-underline-offset: 3px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+img, svg { display: block; }
+:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; border-radius: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 12px; top: -60px; background: var(--ink); color: var(--paper); padding: 8px 12px; border-radius: var(--r-sm); z-index: 100; }
+.skip:focus { top: 12px; }
+
+/* Buttons: one primary ink, one quiet. Sizes by context, not by decoration. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; padding: 0 16px; border-radius: var(--r-md);
+  border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink);
+  font-weight: 600; font-size: 14.5px; text-decoration: none; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.btn-pen { background: var(--pen); border-color: var(--pen); color: var(--pen-on); }
+.btn-pen:hover { background: var(--pen-hover); border-color: var(--pen-hover); }
+.btn-back { background: var(--back); border-color: var(--back); color: #fff; }
+:root[data-theme="dark"] .btn-back { color: #08261b; }
+.btn-quiet { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn-quiet:hover { background: var(--sheet-2); color: var(--ink); border-color: transparent; }
+.btn-lg { min-height: 48px; padding: 0 22px; font-size: 16px; border-radius: 12px; }
+.btn-sm { min-height: 32px; padding: 0 11px; font-size: 13.5px; border-radius: 8px; }
+
+.field { display: grid; gap: 6px; }
+.field label { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.field input, .field select, .field textarea {
+  width: 100%; min-height: 42px; padding: 9px 12px; border-radius: var(--r-md);
+  border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink);
+}
+.field textarea { min-height: 80px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--pen); outline-offset: 0; border-color: transparent; }
+.hint { font-size: 13px; color: var(--ink-3); margin: 0; }
+.error { color: var(--lost); font-size: 13.5px; margin: 0; min-height: 1em; }
+
+/* Status chips: colour encodes state, the word says it. */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px;
+  border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  background: var(--sheet-2); color: var(--ink-2);
+}
+.chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip[data-s="open"] { background: var(--pen-soft); color: var(--pen); }
+.chip[data-s="approving"], .chip[data-s="link_sent"] { background: var(--wait-soft); color: var(--wait); }
+.chip[data-s="recovered"] { background: var(--back-soft); color: var(--back); }
+.chip[data-s="held"] { background: var(--held-soft); color: var(--held); }
+.chip[data-s="expired"], .chip[data-s="dismissed"] { background: var(--sheet-2); color: var(--ink-3); }
+
+/* The rubber stamp: the one memorable object. Uppercase because real stamps are. */
+.stamp {
+  --c: var(--lost);
+  display: inline-grid; justify-items: center; gap: 1px;
+  padding: 6px 14px 5px; border: 3px solid var(--c); border-radius: 8px;
+  color: var(--c); font: 800 22px/1 var(--font); letter-spacing: .06em; text-transform: uppercase;
+  transform: rotate(-7deg); mix-blend-mode: multiply; opacity: .92;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='1 1 1 0 1 1 1 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='1 1 1 0 1 1 1 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.stamp small { font-size: 10.5px; letter-spacing: .08em; font-weight: 700; }
+.stamp.is-back { --c: var(--back); transform: rotate(-4deg); }
+.stamp.is-held { --c: var(--held); }
+:root[data-theme="dark"] .stamp { mix-blend-mode: normal; }
+.stamp.slam { animation: slam .42s var(--ease) both; }
+@keyframes slam {
+  0% { transform: rotate(-4deg) scale(1.9); opacity: 0; }
+  60% { transform: rotate(-4deg) scale(.94); opacity: 1; }
+  100% { transform: rotate(-4deg) scale(1); opacity: .92; }
+}
+
+/* A printed payment slip with a torn bottom edge. */
+.receipt {
+  position: relative; background: var(--sheet); color: var(--ink);
+  font: 400 13px/1.6 var(--mono); padding: 18px 20px 26px;
+  box-shadow: var(--shadow-sheet);
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 8px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 8px repeat-x;
+}
+.receipt hr { border: 0; border-top: 1.5px dashed var(--rule-2); margin: 10px 0; }
+.receipt .r-row { display: flex; justify-content: space-between; gap: 16px; }
+.receipt .r-row span:first-child { color: var(--ink-3); }
+.receipt .r-amount { font: 600 26px/1.2 var(--mono); letter-spacing: -.02em; margin: 2px 0 4px; }
+.receipt .r-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; }
+.receipt .r-stamp { pointer-events: none; margin-right: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}
