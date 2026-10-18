@@ -10,7 +10,7 @@ async function load() {
     for (const v of [u.name, u.email, u.role]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); }
     const td = document.createElement('td');
     if (me.user && u.id === me.user.id) td.textContent = 'you';
-    else { const b = document.createElement('button'); b.className = 'btn btn-quiet btn-sm'; b.type = 'button'; b.textContent = 'Remove';
+    else { const b = document.createElement('button'); b.className = 'btn btn-ghost btn-sm'; b.type = 'button'; b.textContent = 'Remove';
       b.addEventListener('click', async () => { if (!confirm(`Remove ${u.email}? Their sessions end immediately.`)) return; const r = await fetch(`/api/users/${u.id}`, { method: 'DELETE', headers: J }); if (r.ok) { toast('Removed'); load(); } else toast((await r.json()).message || 'Could not remove'); });
       td.append(b); }
     tr.append(td); body.append(tr);

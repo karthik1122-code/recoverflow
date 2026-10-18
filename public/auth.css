@@ -1,24 +1,28 @@
-/* Sign-in and team pages, on the shared tokens. */
-.authpage { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-.authwrap { width: min(400px, 100%); display: grid; gap: 22px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 800; font-size: 17px; }
-.brand-mark { width: 26px; height: 26px; color: var(--pen); }
-.authcard { display: grid; gap: 14px; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 28px; box-shadow: var(--shadow-sheet); }
-.authcard h1 { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
-.lede { margin: -6px 0 4px; color: var(--ink-2); }
-.authcard .btn { width: 100%; }
+/* Sign-in and team pages, on the Marigold tokens. */
+.authpage { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.authpage::before { content: 'Every approval carries a name.'; display: flex; align-items: flex-end; padding: 56px; background: var(--marigold); color: #131a33; font: 400 clamp(36px, 4vw, 60px)/1.02 var(--serif); letter-spacing: -.03em; }
+.authwrap { width: min(400px, 100% - 48px); margin: auto; display: grid; gap: 22px; padding: 40px 0; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 650; font-size: 17px; }
+.brand-mark { width: 30px; height: 30px; }
+.authcard { display: grid; gap: 14px; }
+.authcard h1 { margin: 0; font: 400 40px/1.05 var(--serif); letter-spacing: -.025em; }
+.lede { margin: -4px 0 6px; color: var(--ink-2); }
+.authcard .btn { width: 100%; margin-top: 4px; }
 .foot { margin: 0; font-size: 14px; color: var(--ink-3); }
-.foot a { color: inherit; }
-.teampage { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
-.teampage h1 { margin: 18px 0 6px; font-size: 32px; font-weight: 750; letter-spacing: -.02em; }
-.teamgrid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 24px; }
-.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 20px; min-width: 0; }
-.panel h2 { margin: 0 0 14px; font-size: 17px; }
+.teampage { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+.teampage h1 { margin: 22px 0 6px; font: 400 44px/1.05 var(--serif); letter-spacing: -.025em; }
+.teamgrid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 26px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px; min-width: 0; }
+.panel h2 { margin: 0 0 14px; font: 400 24px/1.2 var(--serif); }
 .panel form { display: grid; gap: 14px; }
 .scroll { overflow-x: auto; padding: 0; }
 .teamgrid table { width: 100%; border-collapse: collapse; }
-.teamgrid th { text-align: left; font-size: 12.5px; font-weight: 600; color: var(--ink-3); padding: 11px 16px; background: var(--sheet-2); border-bottom: 1px solid var(--rule); }
-.teamgrid td { padding: 11px 16px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+.teamgrid th { text-align: left; font-size: 12.5px; font-weight: 550; color: var(--ink-3); padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.teamgrid td { padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
 .teamgrid tr:last-child td { border-bottom: 0; }
-.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 12px; z-index: 99; font-weight: 600; }
-@media (max-width: 760px) { .teamgrid { grid-template-columns: 1fr; } }
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #131a33; color: #fff; padding: 10px 16px; border-radius: 12px; z-index: 99; font-weight: 550; }
+@media (max-width: 820px) {
+  .authpage { grid-template-columns: 1fr; }
+  .authpage::before { padding: 32px 24px; min-height: 160px; font-size: 34px; }
+  .teamgrid { grid-template-columns: 1fr; }
+}

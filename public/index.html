@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RecoverFlow: get paid for failed Razorpay payments</title>
-<meta name="description" content="RecoverFlow reads every failed Razorpay payment, explains why it failed, and sends one payment link when you approve. Free for 30 days, then 8% of what comes back.">
-<meta property="og:title" content="RecoverFlow: get paid for failed Razorpay payments">
+<title>RecoverFlow: hear your failed Razorpay payments come back</title>
+<meta name="description" content="RecoverFlow tells you why each Razorpay payment failed and sends that customer one payment link when you approve. Free for 30 days, then 8% of what comes back.">
+<meta property="og:title" content="RecoverFlow: hear your failed payments come back">
 <meta property="og:description" content="One payment link per failed payment, sent only when you approve. You pay 8% of what comes back, nothing otherwise.">
+<meta name="theme-color" content="#f4a51c">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="site.css">
 <script src="theme.js"></script>
@@ -17,197 +18,226 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="top">
+<header class="top" id="top">
   <div class="wrap top-in">
     <a class="brand" href="/" aria-label="RecoverFlow home">
-      <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true"><rect x="1.5" y="1.5" width="25" height="25" rx="7" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M9 19V9h6a3.2 3.2 0 0 1 0 6.4H9M14.5 15.4 19 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#131a33"/><path d="M22.6 11.2A8 8 0 1 0 24 16" fill="none" stroke="#f4a51c" stroke-width="3" stroke-linecap="round"/><path d="M24.4 7.6 23 12l-4.5-1.1" fill="none" stroke="#f4a51c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="16" r="2.6" fill="#f4a51c"/></svg>
       <span>RecoverFlow</span>
     </a>
     <nav class="top-nav" aria-label="Page sections">
+      <a href="#proof">Results</a>
       <a href="#how">How it works</a>
       <a href="#safety">Safety</a>
       <a href="#pricing">Pricing</a>
-      <a href="#faq">Questions</a>
     </nav>
     <div class="top-actions">
-      <button class="btn btn-quiet btn-sm" type="button" id="themeBtn" aria-label="Switch colour theme">Dark</button>
-      <a class="btn btn-quiet btn-sm hide-sm" href="/login.html">Sign in</a>
-      <a class="btn btn-pen btn-sm" href="/demo">Try the demo</a>
+      <button class="btn btn-ghost btn-sm" type="button" id="themeBtn">Dark</button>
+      <a class="btn btn-ghost btn-sm hide-sm" href="/login.html">Sign in</a>
+      <a class="btn btn-ink btn-sm" href="/demo">Try the demo</a>
     </div>
   </div>
 </header>
 
 <main id="main">
-  <section class="hero wrap" aria-labelledby="heroTitle">
-    <div class="hero-copy">
-      <h1 id="heroTitle">A failed payment is a customer who wanted to buy.</h1>
-      <p class="hero-sub">RecoverFlow reads every failed Razorpay payment, tells you why it failed, and sends that customer one payment link when you say so. You pay 8% of what comes back, and nothing if nothing does.</p>
-      <div class="hero-cta">
-        <a class="btn btn-pen btn-lg" href="/demo">Try the live demo</a>
-        <a class="btn btn-lg" href="#pilot">Start a free pilot</a>
-      </div>
-      <ul class="hero-facts">
-        <li>Runs on your own Razorpay account</li>
-        <li>Nothing is sent until you approve it</li>
-        <li>No plugin to install on your store</li>
-      </ul>
-    </div>
-
-    <div class="hero-scene" aria-label="Example: a failed payment of ₹2,499 that was recovered">
-      <div class="receipt hero-receipt">
-        <div class="r-row"><span>Razorpay</span><span>payment failed</span></div>
-        <hr>
-        <div class="r-head"><div class="r-amount">₹2,499</div>
-          <div class="hero-stamps">
-            <span class="stamp" id="sFailed">Failed</span>
-            <span class="stamp is-back" id="sBack">Recovered<small>₹2,499</small></span>
-          </div>
+  <!-- Hero: marigold field, serif statement, the announcer -->
+  <section class="hero" aria-labelledby="heroTitle">
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <p class="hero-kicker">For Indian stores that take payments on Razorpay</p>
+        <h1 id="heroTitle">The sound of a failed payment coming back.</h1>
+        <p class="hero-sub">RecoverFlow tells you why each payment failed and, when you approve, sends that customer one payment link. When they pay, you hear it. You pay 8% of what comes back, and nothing if nothing does.</p>
+        <div class="hero-cta">
+          <a class="btn btn-ink btn-lg" href="/demo">Try the live demo</a>
+          <a class="btn btn-lg btn-line" href="#pilot">Start a free pilot</a>
         </div>
-        <div class="r-row"><span>Customer</span><span>Ananya Iyer</span></div>
-        <div class="r-row"><span>Order</span><span>Kumkumadi face oil</span></div>
-        <div class="r-row"><span>Method</span><span>UPI, HDFC Bank</span></div>
-        <hr>
-        <div>Issuer bank did not respond after OTP</div>
       </div>
-      <ol class="hero-steps" id="heroSteps">
-        <li><b>Why it failed</b> The bank timed out. Ananya has paid you by UPI before.</li>
-        <li><b>10:42 am</b> You approved one payment link.</li>
-        <li><b>12:58 pm</b> Ananya paid. The case closed itself.</li>
-      </ol>
-      <button class="btn btn-quiet btn-sm replay" type="button" id="replay" hidden>Play again</button>
+
+      <figure class="announcer" aria-label="Live example of RecoverFlow announcing a recovered payment">
+        <div class="grille" aria-hidden="true"></div>
+        <div class="ann-screen">
+          <div class="ann-top">
+            <span class="ann-live"><i></i>Recovered just now</span>
+            <span class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <p class="ann-amount num" id="annAmount">₹2,499</p>
+          <p class="ann-who" id="annWho">from Ananya in Pune. Her bank timed out at checkout.</p>
+          <button class="btn btn-gold ann-play" type="button" id="hearBtn" hidden>
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M4 7.5h3l4-3.5v12l-4-3.5H4z" fill="currentColor"/><path d="M14 7a4 4 0 0 1 0 6M16.2 5a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            Hear it
+          </button>
+        </div>
+        <ol class="ann-feed" id="annFeed" aria-label="Earlier recoveries"></ol>
+      </figure>
     </div>
   </section>
 
+  <!-- The category's money picture -->
+  <section class="proof" id="proof" aria-labelledby="proofTitle">
+    <div class="wrap">
+      <div class="proof-head">
+        <h2 id="proofTitle">Watch the green grow inside the red.</h2>
+        <p>Two weeks at a demo store. Red is money that failed at checkout. Green is the part that came back after one approved link.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart" id="chart" role="img" aria-label="Bar chart of failed and recovered money per day over two weeks"></div>
+        <dl class="chart-totals">
+          <div><dt>Failed</dt><dd class="num" id="tFailed">₹0</dd></div>
+          <div class="is-back"><dt>Came back</dt><dd class="num" id="tBack">₹0</dd></div>
+          <div><dt>Share recovered</dt><dd class="num" id="tShare">0%</dd></div>
+        </dl>
+      </div>
+      <p class="proof-note">Demo data, so you can see the shape. Your pilot report shows your real numbers.</p>
+    </div>
+  </section>
+
+  <!-- How a case moves, shown with the product's own pieces -->
+  <section class="how" id="how" aria-labelledby="howTitle">
+    <div class="wrap">
+      <h2 id="howTitle">From “payment failed” to paid, in four steps.</h2>
+      <ol class="bento">
+        <li class="b-why">
+          <div class="b-copy"><span class="b-n">1</span><h3>It tells you why</h3><p>Every failed payment lands in your inbox with the reason in plain words.</p></div>
+          <div class="b-ui ui-list" aria-hidden="true">
+            <div class="ui-row"><span><b>Vikram Rao</b><small>Card or mandate needs updating</small></span><span class="num">₹18,999</span><span class="chip" data-s="open">Needs approval</span></div>
+            <div class="ui-row"><span><b>Sana Qureshi</b><small>Not enough balance</small></span><span class="num">₹3,499</span><span class="chip" data-s="open">Needs approval</span></div>
+            <div class="ui-row"><span><b>Arjun Menon</b><small>Bank timed out</small></span><span class="num">₹899</span><span class="chip" data-s="open">Needs approval</span></div>
+          </div>
+        </li>
+        <li class="b-safe">
+          <div class="b-copy"><span class="b-n">2</span><h3>It holds back the risky ones</h3><p>Possible duplicates, disputes and customers who never agreed to messages are never contacted.</p></div>
+          <div class="b-ui ui-verdict" aria-hidden="true">
+            <div class="v-row v-no"><i></i><span><b>Might be a duplicate charge</b><small>Held for a person to check</small></span></div>
+            <div class="v-row v-no"><i></i><span><b>No consent to contact</b><small>Nothing will be sent</small></span></div>
+            <div class="v-row v-ok"><i></i><span><b>Bank timed out, consent given</b><small>Safe to follow up once</small></span></div>
+          </div>
+        </li>
+        <li class="b-phone">
+          <div class="b-copy"><span class="b-n">3</span><h3>You approve one link</h3><p>Razorpay texts and emails it from your account. Once, never again.</p></div>
+          <div class="b-ui ui-phone" aria-hidden="true">
+            <div class="phone">
+              <p class="ph-from">VM-RZRPAY</p>
+              <p class="ph-msg">Payment request from Kesari Naturals for ₹2,499. Pay securely: rzp.io/l/k3s4r1</p>
+              <p class="ph-time">10:42 am</p>
+            </div>
+          </div>
+        </li>
+        <li class="b-paid">
+          <div class="b-copy"><span class="b-n">4</span><h3>It closes itself when they pay</h3><p>The case is stamped recovered, your report updates, and the dashboard can say it out loud.</p></div>
+          <div class="b-ui ui-receipt" aria-hidden="true">
+            <div class="mini-receipt">
+              <div class="mr-row"><span>Razorpay</span><span>pay_Q8L2</span></div>
+              <div class="mr-amt num">₹2,499</div>
+              <div class="mr-row"><span>Ananya Iyer</span><span>Paid 12:58 pm</span></div>
+              <span class="stamp is-back">Recovered</span>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Safety -->
+  <section class="safety" id="safety" aria-labelledby="safetyTitle">
+    <div class="wrap safety-in">
+      <h2 id="safetyTitle">Built to send fewer messages, not more.</h2>
+      <ul class="rules">
+        <li><b>You approve every message.</b> Nothing reaches a customer until someone on your team says yes.</li>
+        <li><b>One link per failed payment.</b> No reminder chains, no second nudge.</li>
+        <li><b>Consent first.</b> Customers who have not agreed to be contacted get nothing.</li>
+        <li><b>Risky cases wait.</b> Possible duplicate charges, disputes and unclear failures go to a person.</li>
+        <li><b>A record that can't be quietly edited.</b> Every approval carries the approver's name in a hash-chained log.</li>
+        <li><b>Test mode first.</b> Live payments only after you switch them on yourself.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Calculator -->
   <section class="calc-band" aria-labelledby="calcTitle">
     <div class="wrap calc">
-      <div class="calc-copy">
-        <h2 id="calcTitle">How much is waiting for you?</h2>
-        <p>Many Indian stores see 5 to 15% of payment attempts fail. To find your number, open Razorpay, go to Transactions, then Payments, and filter by Failed.</p>
+      <div class="calc-left">
+        <h2 id="calcTitle">What is waiting in your Razorpay?</h2>
+        <p class="calc-intro">Many Indian stores see 5 to 15% of payment attempts fail. Find yours in Razorpay under Transactions, Payments, filtered by Failed.</p>
+        <form class="calc-form" id="calc">
+          <div class="field"><label for="cSales">Online sales a month <output id="oSales" for="cSales"></output></label><input id="cSales" type="range" min="0" max="100" value="45"></div>
+          <div class="field"><label for="cFail">Payments that fail <output id="oFail" for="cFail"></output></label><input id="cFail" type="range" min="2" max="20" value="8"></div>
+          <div class="field"><label for="cRec">Customers who pay after one link <output id="oRec" for="cRec"></output></label><input id="cRec" type="range" min="5" max="45" value="20"></div>
+          <p class="hint">The last one is an assumption, not a promise. The demo store above is around 45%.</p>
+        </form>
       </div>
-      <form class="calc-form" id="calc" aria-describedby="calcNote">
-        <div class="field">
-          <label for="cSales">Online sales a month <output id="oSales" for="cSales"></output></label>
-          <input id="cSales" type="range" min="0" max="100" value="45">
-        </div>
-        <div class="field">
-          <label for="cFail">Share of payments that fail <output id="oFail" for="cFail"></output></label>
-          <input id="cFail" type="range" min="2" max="20" value="8">
-        </div>
-        <div class="field">
-          <label for="cRec">Failed customers who pay after one link <output id="oRec" for="cRec"></output></label>
-          <input id="cRec" type="range" min="5" max="40" value="20">
-        </div>
-        <p class="hint" id="calcNote">The last slider is an assumption, not a promise. The pilot shows your real number.</p>
-      </form>
       <div class="calc-out" aria-live="polite">
         <p class="calc-label">Could come back each month</p>
-        <p class="calc-big" id="outBack">₹0</p>
+        <p class="calc-big num" id="outBack">₹0</p>
         <dl class="calc-lines">
-          <div><dt>Failing each month</dt><dd id="outFail">₹0</dd></div>
-          <div><dt>RecoverFlow fee, 8%</dt><dd id="outFee">₹0</dd></div>
-          <div class="keep"><dt>You keep</dt><dd id="outKeep">₹0</dd></div>
+          <div><dt>Failing each month</dt><dd class="num" id="outFail">₹0</dd></div>
+          <div><dt>RecoverFlow fee, 8%</dt><dd class="num" id="outFee">₹0</dd></div>
+          <div class="keep"><dt>You keep</dt><dd class="num" id="outKeep">₹0</dd></div>
         </dl>
       </div>
     </div>
   </section>
 
-  <section class="how wrap" id="how" aria-labelledby="howTitle">
-    <h2 id="howTitle">How it works</h2>
-    <ol class="how-steps">
-      <li>
-        <h3>Connect Razorpay</h3>
-        <p>Add one webhook and an API key in your Razorpay dashboard. It takes about ten minutes, and the pilot includes a call where we do it together.</p>
-      </li>
-      <li>
-        <h3>See why each payment failed</h3>
-        <p>Bank timeout, low balance, expired card or mandate. Possible duplicates, open disputes and customers who have not agreed to be contacted are held back automatically.</p>
-      </li>
-      <li>
-        <h3>Approve one link</h3>
-        <p>Razorpay texts and emails the payment link from your account. When the customer pays, the case closes and the money shows in your weekly report.</p>
-      </li>
-    </ol>
-    <figure class="shot">
-      <img src="assets/inbox.png" width="1440" height="900" alt="The RecoverFlow inbox: four failed payments waiting for approval, each with the customer, the amount and a plain reason such as Bank timed out." loading="lazy">
-    </figure>
-  </section>
-
-  <section class="safety-band" id="safety" aria-labelledby="safetyTitle">
-    <div class="wrap safety">
+  <!-- Pricing -->
+  <section class="pricing" id="pricing" aria-labelledby="priceTitle">
+    <div class="wrap price-in">
       <div>
-        <h2 id="safetyTitle">You stay in charge of every message.</h2>
-        <p>A bad follow-up costs you a customer. RecoverFlow is built to send fewer messages, not more.</p>
+        <h2 id="priceTitle"><span class="price-big">8%</span> of what comes back.</h2>
+        <p class="price-sub">Free for the first 30 days. No setup fee, no monthly fee, nothing at all if no customer pays. Stop any time by removing the webhook.</p>
       </div>
-      <ul class="rules">
-        <li>Nothing goes to a customer until someone on your team approves it.</li>
-        <li>One link per failed payment. Never a second reminder.</li>
-        <li>No message to customers who have not agreed to be contacted.</li>
-        <li>Possible duplicate charges, open disputes and unclear failures wait for a person.</li>
-        <li>Every approval is logged with the name of whoever approved it, in a record that shows if anything is edited later.</li>
-        <li>It starts in Razorpay test mode. Live payments only after you switch them on.</li>
-      </ul>
+      <a class="btn btn-ink btn-lg" href="#pilot">Start a free pilot</a>
     </div>
   </section>
 
-  <section class="pricing wrap" id="pricing" aria-labelledby="priceTitle">
-    <h2 id="priceTitle">Pricing</h2>
-    <div class="price">
-      <div class="price-main">
-        <p class="price-big">8%</p>
-        <p class="price-of">of the money that comes back through a RecoverFlow link</p>
-      </div>
-      <ul class="price-list">
-        <li>Free for the first 30 days</li>
-        <li>No setup fee and no monthly fee</li>
-        <li>Nothing to pay if no customer pays</li>
-        <li>Stop any time by removing the webhook</li>
-      </ul>
-      <a class="btn btn-pen btn-lg" href="#pilot">Start a free pilot</a>
-    </div>
-  </section>
-
-  <section class="pilot-band" id="pilot" aria-labelledby="pilotTitle">
-    <div class="wrap pilot">
-      <div class="pilot-copy">
-        <h2 id="pilotTitle">Start a free 30-day pilot</h2>
-        <p>I'm Karthik, and I build RecoverFlow in Hyderabad. During the pilot I set it up with you on a short call and go through the first week of cases with you.</p>
+  <!-- Pilot: a founder's letter and a short form -->
+  <section class="pilot" id="pilot" aria-labelledby="pilotTitle">
+    <div class="wrap pilot-in">
+      <div class="letter">
+        <h2 id="pilotTitle">A free 30-day pilot, set up with you.</h2>
+        <p>I'm Karthik, and I build RecoverFlow in Hyderabad. During the pilot I connect it to your Razorpay with you on a short call, and for the first week we look at every new failed payment together.</p>
+        <p>If nothing comes back in 30 days, you have lost nothing but the call.</p>
+        <p class="sign">Karthik</p>
         <p class="hint">Taking five pilot stores this month.</p>
       </div>
       <form class="pilot-form" id="pilotForm" novalidate>
         <div class="field"><label for="pName">Your name</label><input id="pName" name="name" autocomplete="name" maxlength="80" required></div>
         <div class="field"><label for="pContact">Email or WhatsApp number</label><input id="pContact" name="contact" maxlength="120" required autocomplete="email"></div>
         <div class="field full"><label for="pStore">Your store's website or Instagram</label><input id="pStore" name="store" maxlength="160" required placeholder="kesarinaturals.in"></div>
-        <div class="field"><label for="pVolume">Failed payments a month, roughly</label>
+        <div class="field full"><label for="pVolume">Failed payments a month, roughly</label>
           <select id="pVolume" name="volume"><option value="">Not sure</option><option>Under 20</option><option>20 to 100</option><option>100 to 500</option><option>More than 500</option></select>
         </div>
         <div class="hp" aria-hidden="true"><label for="pSite">Leave this empty</label><input id="pSite" name="website" tabindex="-1" autocomplete="off"></div>
-        <p class="error" id="pErr" role="alert"></p>
-        <button class="btn btn-pen btn-lg" type="submit" id="pGo">Request a pilot</button>
+        <p class="error full" id="pErr" role="alert"></p>
+        <button class="btn btn-ink btn-lg" type="submit" id="pGo">Request a pilot</button>
       </form>
       <div class="pilot-done" id="pilotDone" hidden tabindex="-1">
         <span class="stamp is-back">Received</span>
         <h3>Thanks. I'll message you within a day.</h3>
-        <p>Meanwhile, the <a href="/demo">live demo</a> shows exactly what you'll see.</p>
+        <p>Meanwhile, the <a href="/demo">live demo</a> shows exactly what you will see.</p>
       </div>
     </div>
   </section>
 
-  <section class="faq wrap" id="faq" aria-labelledby="faqTitle">
-    <h2 id="faqTitle">Questions</h2>
-    <div class="faq-list">
-      <details><summary>Will my customers feel spammed?</summary><p>No. Each failed payment gets at most one link, and only after you approve it. Customers who have not agreed to be contacted get nothing.</p></details>
-      <details><summary>What does the customer receive?</summary><p>A standard Razorpay payment link by SMS and email, sent from your Razorpay account with your business name. They pay the same way they tried to before.</p></details>
-      <details><summary>Does RecoverFlow touch my money?</summary><p>No. Customers pay you through Razorpay, and the money settles to your account as usual. RecoverFlow only sees the payment events and sends you an invoice for 8% once a month.</p></details>
-      <details><summary>What if the customer already paid another way?</summary><p>Close the case without contacting them. Nothing is sent and nothing is charged.</p></details>
-      <details><summary>Does it work with Shopify or WooCommerce?</summary><p>Yes, if your checkout uses Razorpay. RecoverFlow sees every payment that reached Razorpay and failed. Carts abandoned before the payment step are not visible to it yet.</p></details>
-      <details><summary>Is customer data safe?</summary><p>Every webhook is checked against your Razorpay signature, viewers only see masked phone numbers and emails, and you can run RecoverFlow on your own server. The code is open on GitHub.</p></details>
+  <section class="faq" id="faq" aria-labelledby="faqTitle">
+    <div class="wrap faq-in">
+      <h2 id="faqTitle">Questions stores ask</h2>
+      <div class="faq-list">
+        <details><summary>Will my customers feel spammed?</summary><p>No. Each failed payment gets at most one link, and only after you approve it. Customers who have not agreed to be contacted get nothing.</p></details>
+        <details><summary>What does the customer receive?</summary><p>A standard Razorpay payment link by SMS and email, sent from your Razorpay account with your business name. They pay the way they tried to before.</p></details>
+        <details><summary>Does RecoverFlow touch my money?</summary><p>No. Customers pay you through Razorpay and it settles to your account as usual. RecoverFlow only sees payment events, and sends an invoice for 8% once a month.</p></details>
+        <details><summary>What if the customer already paid another way?</summary><p>Close the case without contacting them. Nothing is sent and nothing is charged.</p></details>
+        <details><summary>Does it work with Shopify or WooCommerce?</summary><p>Yes, if your checkout uses Razorpay. RecoverFlow sees every payment that reached Razorpay and failed. Carts abandoned before the payment step are not visible to it yet.</p></details>
+        <details><summary>What does “hear it” mean?</summary><p>The dashboard can announce recoveries out loud, like a counter speaker announces payments received. It's off until you turn it on.</p></details>
+      </div>
     </div>
   </section>
 </main>
 
 <footer class="foot">
   <div class="wrap foot-in">
-    <p>RecoverFlow, built in Hyderabad.</p>
+    <a class="brand" href="/" aria-label="RecoverFlow home">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#f4a51c"/><path d="M22.6 11.2A8 8 0 1 0 24 16" fill="none" stroke="#131a33" stroke-width="3" stroke-linecap="round"/><path d="M24.4 7.6 23 12l-4.5-1.1" fill="none" stroke="#131a33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="16" r="2.6" fill="#131a33"/></svg>
+      <span>RecoverFlow</span>
+    </a>
+    <p>Built in Hyderabad for stores on Razorpay.</p>
     <nav aria-label="Footer"><a href="/demo">Live demo</a><a href="/login.html">Sign in</a><a href="https://github.com/karthik1122-code/recoverflow">GitHub</a></nav>
   </div>
 </footer>

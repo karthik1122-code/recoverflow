@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="app.css">
 <script src="theme.js"></script>
@@ -17,126 +17,141 @@
 <a class="skip" href="#main">Skip to content</a>
 <div class="shell">
   <aside class="side" aria-label="Main">
-    <a class="brand" href="/" aria-label="RecoverFlow home">
-      <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true"><rect x="1.5" y="1.5" width="25" height="25" rx="7" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M9 19V9h6a3.2 3.2 0 0 1 0 6.4H9M14.5 15.4 19 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>RecoverFlow</span>
-    </a>
+    <div class="ws">
+      <span class="ws-mark" id="wsMark" aria-hidden="true">K</span>
+      <div class="ws-text"><b id="wsName">Your store</b><small id="wsMode">RecoverFlow</small></div>
+    </div>
+    <button class="jump" type="button" id="jumpBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m13.2 13.2 3.3 3.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Search or jump</span><span class="kbd" id="modKey">Ctrl K</span></button>
     <nav class="nav" id="nav">
-      <a href="#inbox" data-view="inbox">Needs approval <b data-count="open"></b></a>
-      <a href="#sent" data-view="sent">Waiting for payment <b data-count="sent"></b></a>
-      <a href="#recovered" data-view="recovered">Recovered <b data-count="recovered"></b></a>
-      <a href="#held" data-view="held">Held by safety rules <b data-count="held"></b></a>
-      <a href="#all" data-view="all">All cases</a>
+      <a href="#inbox" data-view="inbox"><span>Needs approval</span><b data-count="open"></b></a>
+      <a href="#sent" data-view="sent"><span>Waiting for payment</span><b data-count="sent"></b></a>
+      <a href="#recovered" data-view="recovered"><span>Recovered</span><b data-count="recovered"></b></a>
+      <a href="#held" data-view="held"><span>Held by safety rules</span><b data-count="held"></b></a>
+      <a href="#all" data-view="all"><span>All cases</span></a>
       <span class="nav-gap" aria-hidden="true"></span>
-      <a href="#report" data-view="report">Weekly report</a>
-      <a href="#audit" data-view="audit">Audit trail</a>
-      <a href="#connect" data-view="connect">Connect Razorpay <i id="connectDot" hidden></i></a>
+      <a href="#report" data-view="report"><span>Weekly report</span></a>
+      <a href="#audit" data-view="audit"><span>Audit trail</span></a>
+      <a href="#connect" data-view="connect"><span>Connect Razorpay</span><i id="connectDot" hidden></i></a>
     </nav>
     <div class="side-foot">
+      <label class="toggle"><input type="checkbox" id="announce"><span class="track" aria-hidden="true"></span><span>Announce recoveries out loud</span></label>
+      <div class="side-row">
+        <button class="btn btn-ghost btn-sm" type="button" id="themeBtn">Dark mode</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="helpBtn">Shortcuts <span class="kbd">?</span></button>
+      </div>
       <div id="who"></div>
-      <button class="btn btn-quiet btn-sm theme-btn" type="button" id="themeBtn">Dark mode</button>
     </div>
   </aside>
 
   <main id="main" class="main" tabindex="-1">
-    <div class="demo-note" id="demoNote" hidden>
-      This is the live demo with sample customers. Links are simulated and nothing is sent to anyone.
-    </div>
+    <p class="demo-note" id="demoNote" hidden>Live demo with a sample store. Links are simulated and nothing is sent to anyone.</p>
 
-    <!-- Cases (inbox / sent / recovered / held / all) -->
     <section class="view" id="view-cases" aria-labelledby="casesTitle">
       <header class="page-head">
         <div>
           <h1 id="casesTitle">Needs approval</h1>
-          <p class="page-sub" id="casesSub">Failed payments the safety rules allow you to follow up. Nothing is sent until you approve.</p>
+          <p class="page-sub" id="casesSub"></p>
         </div>
         <button class="btn" type="button" id="testBtn">Send a test failure</button>
       </header>
 
-      <figure class="ledger" id="ledger" aria-label="Where the money stands">
-        <div class="ledger-bar" id="ledgerBar" role="img"></div>
-        <dl class="ledger-key">
-          <div data-k="recovered"><dt>Recovered</dt><dd id="kRecovered">₹0</dd></div>
-          <div data-k="sent"><dt>Waiting for payment</dt><dd id="kSent">₹0</dd></div>
-          <div data-k="open"><dt>Needs approval</dt><dd id="kOpen">₹0</dd></div>
-          <div data-k="held"><dt>Held</dt><dd id="kHeld">₹0</dd></div>
-          <div data-k="rate"><dt>Paid after a link</dt><dd id="kRate">—</dd></div>
-        </dl>
-      </figure>
+      <section class="money" id="money" aria-label="Money recovered over the last 14 days">
+        <div class="money-lead">
+          <p class="money-label">Recovered in the last 14 days</p>
+          <p class="money-big num" id="mBack">₹0</p>
+          <p class="money-sub" id="mSub"></p>
+        </div>
+        <div class="spark" id="spark" role="img"></div>
+      </section>
 
-      <div class="table-tools">
+      <div class="tools">
+        <div class="chips" id="chips" role="group" aria-label="Filter by reason"></div>
         <label class="search"><span class="sr-only">Search cases</span>
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m13.2 13.2 3.3 3.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          <input id="search" type="search" placeholder="Search by name, payment id or reason" autocomplete="off">
+          <input id="search" type="search" placeholder="Search" autocomplete="off"><span class="kbd">/</span>
         </label>
-        <span class="table-count" id="tableCount" aria-live="polite"></span>
       </div>
 
       <div class="table-wrap">
         <table class="cases" id="casesTable">
-          <thead><tr><th scope="col">Customer</th><th scope="col" class="num">Amount</th><th scope="col">Why it failed</th><th scope="col">Status</th><th scope="col" class="when">Failed</th></tr></thead>
+          <thead><tr>
+            <th scope="col" class="sel" id="selHead"><input type="checkbox" id="selAll" aria-label="Select all cases that can be approved"></th>
+            <th scope="col">Customer</th><th scope="col" class="num">Amount</th><th scope="col">Why it failed</th><th scope="col">Status</th><th scope="col" class="when">Failed</th><th scope="col" class="act"><span class="sr-only">Actions</span></th>
+          </tr></thead>
           <tbody id="rows"></tbody>
         </table>
         <div class="empty" id="empty" hidden></div>
       </div>
+      <p class="table-foot" id="tableFoot"></p>
     </section>
 
-    <!-- Weekly report -->
     <section class="view" id="view-report" hidden aria-labelledby="reportTitle">
       <header class="page-head">
-        <div>
-          <h1 id="reportTitle">Weekly report</h1>
-          <p class="page-sub">What RecoverFlow brought back. Print it or save it as a PDF to share.</p>
-        </div>
+        <div><h1 id="reportTitle">Weekly report</h1><p class="page-sub">What came back, ready to print or save as a PDF for the store owner.</p></div>
         <div class="head-actions">
-          <div class="seg" role="group" aria-label="Period">
-            <button type="button" data-days="7" aria-pressed="true">7 days</button>
-            <button type="button" data-days="30" aria-pressed="false">30 days</button>
-          </div>
+          <div class="seg" role="group" aria-label="Period"><button type="button" data-days="7" aria-pressed="true">7 days</button><button type="button" data-days="30" aria-pressed="false">30 days</button></div>
           <button class="btn" type="button" id="printBtn">Print or save PDF</button>
         </div>
       </header>
       <article class="report" id="report"></article>
     </section>
 
-    <!-- Audit -->
     <section class="view" id="view-audit" hidden aria-labelledby="auditTitle">
       <header class="page-head">
-        <div>
-          <h1 id="auditTitle">Audit trail</h1>
-          <p class="page-sub">Every webhook, approval and payment, in order. Each entry is chained to the one before it, so an edited record shows up as broken.</p>
-        </div>
+        <div><h1 id="auditTitle">Audit trail</h1><p class="page-sub">Every webhook, approval and payment in order. Each entry is chained to the one before it, so an edited record shows up as broken.</p></div>
         <span class="chain" id="chain"></span>
       </header>
       <ol class="audit" id="audit"></ol>
     </section>
 
-    <!-- Connect -->
     <section class="view" id="view-connect" hidden aria-labelledby="connectTitle">
       <header class="page-head">
-        <div>
-          <h1 id="connectTitle">Connect Razorpay</h1>
-          <p class="page-sub">Three steps, about ten minutes. You need admin access to your Razorpay dashboard.</p>
-        </div>
+        <div><h1 id="connectTitle">Connect Razorpay</h1><p class="page-sub">Three steps, about ten minutes. You need admin access to your Razorpay dashboard.</p></div>
       </header>
       <ol class="steps" id="steps"></ol>
     </section>
   </main>
 </div>
 
+<!-- Bulk action bar -->
+<div class="bulk" id="bulk" hidden role="region" aria-label="Selected cases">
+  <span id="bulkText"></span>
+  <button class="btn btn-gold btn-sm" type="button" id="bulkSend">Send links</button>
+  <button class="btn btn-ghost btn-sm" type="button" id="bulkClear">Clear</button>
+</div>
+
 <!-- Case drawer -->
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" aria-labelledby="dTitle" role="dialog" aria-modal="true" hidden>
   <header class="drawer-head">
-    <div>
-      <h2 id="dTitle">Case</h2>
-      <p class="drawer-sub" id="dSub"></p>
-    </div>
-    <button class="btn btn-quiet btn-sm" type="button" id="dClose" aria-label="Close case">Close</button>
+    <div><h2 id="dTitle">Case</h2><p class="drawer-sub" id="dSub"></p></div>
+    <button class="btn btn-ghost btn-sm" type="button" id="dClose">Close <span class="kbd">Esc</span></button>
   </header>
   <div class="drawer-body" id="dBody"></div>
   <footer class="drawer-foot" id="dFoot"></footer>
 </aside>
+
+<!-- Command palette -->
+<dialog class="palette" id="palette" aria-label="Search or jump">
+  <input id="pInput" type="text" placeholder="Search customers, or type a page or action" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="pList">
+  <ul id="pList" role="listbox"></ul>
+  <p class="palette-foot"><span><span class="kbd">↑</span> <span class="kbd">↓</span> to move</span><span><span class="kbd">Enter</span> to open</span><span><span class="kbd">Esc</span> to close</span></p>
+</dialog>
+
+<!-- Shortcuts -->
+<dialog class="help" id="help" aria-labelledby="helpTitle">
+  <h2 id="helpTitle">Keyboard shortcuts</h2>
+  <dl>
+    <div><dt><span class="kbd">J</span> <span class="kbd">K</span></dt><dd>Move down and up the list</dd></div>
+    <div><dt><span class="kbd">Enter</span></dt><dd>Open the case</dd></div>
+    <div><dt><span class="kbd">X</span></dt><dd>Select the case</dd></div>
+    <div><dt><span class="kbd">A</span></dt><dd>Review and send its payment link</dd></div>
+    <div><dt><span class="kbd">/</span></dt><dd>Search this list</dd></div>
+    <div><dt><span class="kbd" data-mod>Ctrl K</span></dt><dd>Search or jump anywhere</dd></div>
+    <div><dt><span class="kbd">Esc</span></dt><dd>Close what's open</dd></div>
+  </dl>
+  <form method="dialog"><button class="btn">Done</button></form>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="app.js" type="module"></script>

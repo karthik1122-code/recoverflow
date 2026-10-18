@@ -17,10 +17,14 @@ test('demo: seeded cases cover every state and the summary is real', async () =>
   const s = await start({ DEMO: 'on' });
   try {
     const { body } = await s.api('/api/cases');
-    assert.equal(body.cases.length, 10);
+    assert.equal(body.cases.length, 44, '10 named cases plus two weeks of history');
     assert.deepEqual(body.razorpay, { ready: true, mode: 'simulated' });
     for (const st of ['open', 'held', 'link_sent', 'recovered', 'expired']) assert.ok(body.summary.by_status[st] > 0, st);
-    assert.equal(body.summary.recovered, (2499 + 4899) * 100);
+    assert.ok(body.summary.recovered >= (2499 + 4899) * 100);
+    const trend = await s.api('/api/report?days=14');
+    assert.equal(trend.body.daily.length, 14);
+    assert.ok(trend.body.daily.filter(d => d.recovered > 0).length >= 5, 'the trend has shape');
+    assert.equal(trend.body.daily.reduce((a, d) => a + d.recovered, 0), trend.body.recovered_amount, 'daily buckets add up to the total');
     assert.ok(body.cases.find(c => c.customer.name === 'Ananya Iyer'));
     const audit = await s.api('/api/audit');
     assert.equal(audit.body.integrity.valid, true);

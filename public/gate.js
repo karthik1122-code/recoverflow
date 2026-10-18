@@ -14,12 +14,12 @@
     const host = () => document.getElementById('who');
     const render = () => {
       const h = host(); if (!h) return;
-      if (!me.authEnabled) { h.append(mk('p', 'Demo workspace', 'who-name'), mk('p', 'No sign-in needed', 'who-meta')); return; }
+      if (!me.authEnabled) return;
       if (!me.user) return;
       h.append(mk('p', me.user.name, 'who-name'), mk('p', `${me.user.role} · ${me.user.email}`, 'who-meta'));
       const row = mk('div', '', 'who-row');
-      if (me.user.role === 'admin') { const a = mk('a', 'Team', 'btn btn-quiet btn-sm'); a.href = '/team.html'; row.append(a); }
-      const out = mk('button', 'Sign out', 'btn btn-quiet btn-sm'); out.type = 'button';
+      if (me.user.role === 'admin') { const a = mk('a', 'Team', 'btn btn-ghost btn-sm'); a.href = '/team.html'; row.append(a); }
+      const out = mk('button', 'Sign out', 'btn btn-ghost btn-sm'); out.type = 'button';
       out.addEventListener('click', async () => { await orig('/api/auth/logout', { method: 'POST', headers: { 'x-ag-csrf': '1', 'content-type': 'application/json' }, body: '{}' }); location.replace('/login.html'); });
       row.append(out); h.append(row);
     };

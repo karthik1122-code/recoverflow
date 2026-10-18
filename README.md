@@ -12,7 +12,7 @@ Pricing for stores: free for 30 days, then 8% of what comes back, nothing if not
 |---|---|
 | ![Inbox](docs/dashboard-light.png) | ![Recovered case](docs/case.png) |
 
-| Dark mode | Phone |
+| Dark mode | Site on a phone |
 |---|---|
 | ![Dark](docs/dashboard-dark.png) | ![Mobile](docs/mobile.png) |
 
@@ -155,9 +155,11 @@ Amounts are always integers in **paise**.
 
 ## UI
 
-The identity is office paperwork: ballpoint-blue ink for actions, a red **Failed** stamp on the payment receipt, a green **Recovered** stamp that lands when the money comes back, and violet stamp ink for cases the safety rules hold. Type is Schibsted Grotesk throughout, with IBM Plex Mono only on the printed receipts. Tokens live in `public/tokens.css`; light and dark follow the system setting and can be switched.
+Design direction **Marigold**, chosen after studying 109 SaaS sites ([docs/DESIGN_STUDY.md](docs/DESIGN_STUDY.md)). Every Indian merchant knows the counter speaker that announces money received; RecoverFlow announces money that came back. Marigold is the colour of shop openings, ink blue is the ledger pen. Newsreader (editorial serif, regular weight) carries the numbers and headlines, Geist runs the interface. Tokens live in `public/tokens.css`; light and dark follow the system and can be switched.
 
-The dashboard replaces stat cards with a single money bar (recovered, waiting, needs approval, held, sized by value). Every page works at phone width, keeps keyboard focus visible, traps focus in the case drawer, and respects reduced motion.
+- **Site:** a marigold hero with a speaker object you can actually hear (browser speech), a two-week chart of failed money with the recovered share growing inside it, a bento of real product pieces, a recovery calculator, and a founder's pilot letter.
+- **Dashboard:** a greeting that leads with what is waiting, a 14-day recovered trend, reason filter chips, multi-select with a bulk "send links" bar, Ctrl/⌘ K palette, single-key shortcuts (J/K, X, A, /, ?), optional spoken announcements when money comes back, and a case drawer with the stamped receipt, safety check and the exact customer message.
+- Works at phone width, keeps focus visible, traps focus in the drawer, respects reduced motion.
 ## Reliability
 
 Webhook handling is built to be safe to retry:

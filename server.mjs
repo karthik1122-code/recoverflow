@@ -138,10 +138,11 @@ async function approveCase(id, by) {
 async function seedDemo() {
   for (const { outcome, hoursAgo, payload } of demoScenarios()) {
     const receivedAt = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
-    const at = minutes => new Date(Date.parse(receivedAt) + minutes * 60_000).toISOString();
+    const at = minutes => new Date(Math.min(Date.parse(receivedAt) + minutes * 60_000, Date.now() - 60_000)).toISOString();
     await ingestFailure(payload, JSON.stringify(payload), { receivedAt });
     const id = payload.payload.payment.entity.id;
     if (outcome === 'open' || outcome === 'held') continue;
+    if (outcome === 'dismissed') { await store.updateEvent(id, r => transition(r, 'dismiss', { by: 'demo@recoverflow', reason: 'Customer paid by bank transfer' }, at(40)), () => null); continue; }
     const link = await provider.createPaymentLink({ reference_id: `rf_${id}` });
     await store.updateEvent(id, r => {
       let next = transition(r, 'claim', { by: 'demo@recoverflow' }, at(22));

@@ -29,6 +29,29 @@ const scenarios = [
   [9, 1599, 'Issuer network timeout', { recovery_opt_in: 'true' }, 'expired', 120],
 ];
 
+// Older, anonymous-looking history so the 14-day trend has shape. Deterministic, so the demo looks the same every restart.
+const more = ['Diya Nair', 'Kabir Shah', 'Tara Joshi', 'Aditya Verma', 'Ira Kapoor', 'Neel Desai', 'Myra Pillai', 'Yash Malhotra', 'Zoya Ahmed', 'Dev Chauhan', 'Riya Sen', 'Om Patil', 'Anika Bose', 'Krish Iyer', 'Pari Mehta'];
+const reasons = ['Issuer bank timeout after OTP', 'Insufficient balance in the account', 'UPI collect request expired', 'Gateway timed out', 'Card expired, please re-authorize', 'Transaction declined: not enough money'];
+function history(now) {
+  const out = [];
+  let seed = 7;
+  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let i = 0; i < 34; i += 1) {
+    const name = more[i % more.length];
+    const day = 1 + Math.floor(rnd() * 13);
+    const hoursAgo = day * 24 + Math.floor(rnd() * 20);
+    const amount = [699, 899, 1199, 1499, 1999, 2499, 3299, 4599, 6999][Math.floor(rnd() * 9)];
+    const r = rnd();
+    // Recovery improves over the fortnight, as it would once a store starts approving daily.
+    const recoverChance = 0.25 + (13 - day) * 0.035;
+    const outcome = r < recoverChance ? 'recovered' : r < recoverChance + 0.22 ? 'expired' : r < recoverChance + 0.32 ? 'held' : 'dismissed';
+    const notes = outcome === 'held' ? { recovery_opt_in: 'true', duplicate_suspected: 'true' } : { recovery_opt_in: 'true' };
+    const slugName = name.toLowerCase().replace(/[^a-z]+/g, '.');
+    out.push({ outcome, hoursAgo, payload: failurePayload({ id: `pay_demo_h${String(i + 1).padStart(3, '0')}`, amount, description: reasons[Math.floor(rnd() * reasons.length)], notes, person: [name, `${slugName}@example.in`, `+9198000${String(12000 + i)}`], createdAt: Math.floor((now - hoursAgo * 3_600_000) / 1000) }) });
+  }
+  return out;
+}
+
 export function failurePayload({ id, amount, description, notes = {}, person, createdAt }) {
   const [name, email, contact] = person;
   return {
@@ -39,10 +62,10 @@ export function failurePayload({ id, amount, description, notes = {}, person, cr
 }
 
 export function demoScenarios(now = Date.now()) {
-  return scenarios.map(([p, amount, description, notes, outcome, hoursAgo], i) => {
+  return history(now).concat(scenarios.map(([p, amount, description, notes, outcome, hoursAgo], i) => {
     const createdAt = Math.floor((now - hoursAgo * 3_600_000) / 1000);
     return { outcome, hoursAgo, payload: failurePayload({ id: `pay_demo_${String(i + 1).padStart(3, '0')}`, amount, description, notes, person: people[p], createdAt }) };
-  });
+  }));
 }
 
 export function testFailurePayload(now = Date.now()) {

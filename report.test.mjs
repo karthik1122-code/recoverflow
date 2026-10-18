@@ -27,6 +27,9 @@ test('weekly report counts only what happened inside the window', () => {
   assert.deepEqual(r.top_reasons.map(x => x.label), ['possible_duplicate', 'transient_bank_failure', 'insufficient_funds']);
   assert.deepEqual(r.recovered.map(x => x.id), ['a', 'b'], 'newest recovery first');
   assert.equal(r.recovered[0].name, 'N a');
+  assert.equal(r.daily.length, 7);
+  assert.equal(r.daily.reduce((a, d) => a + d.recovered, 0), 7000);
+  assert.equal(r.daily.reduce((a, d) => a + d.failed, 0), 17000);
 });
 
 test('window is clamped to 1–90 days and empty data is all zeros', () => {

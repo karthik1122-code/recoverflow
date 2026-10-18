@@ -19,8 +19,17 @@ export function buildReport(records, { days = 7, now = Date.now() } = {}) {
   }
   const recovered_amount = recovered.reduce((s, r) => s + (r.recovery?.recovered_amount ?? r.amount ?? 0), 0);
   const failed_amount = failed.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  // One bucket per calendar day (UTC) so the chart can show failed money with the recovered part inside it.
+  const daily = [];
+  for (let d = span - 1; d >= 0; d -= 1) {
+    const start = Math.floor((now - d * DAY) / DAY) * DAY, end = start + DAY;
+    const dayFailed = records.filter(r => { const t = Date.parse(r.received_at || ''); return t >= start && t < end; });
+    const dayBack = records.filter(r => { const t = Date.parse(r.recovery?.recovered_at || ''); return statusOf(r) === 'recovered' && t >= start && t < end; });
+    daily.push({ date: new Date(start).toISOString().slice(0, 10), failed: dayFailed.reduce((a, r) => a + (Number(r.amount) || 0), 0), recovered: dayBack.reduce((a, r) => a + (r.recovery?.recovered_amount ?? r.amount ?? 0), 0) });
+  }
   return {
     days: span,
+    daily,
     from: new Date(from).toISOString(),
     to: new Date(to).toISOString(),
     failed_count: failed.length,
