@@ -21,6 +21,7 @@ export function evaluateRazorpayWebhook(payload) {
     retry_count: Number(payment.notes?.retry_count || 0),
     checkout_open_minutes: Number(payment.notes?.checkout_open_minutes || 0),
     received_event: payload.event,
+    customer: { email: payment.email || null, contact: payment.contact || null },
   };
   const diagnosis = diagnose(event);
   const decision = policyDecision(event, diagnosis);

@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS audit (
   seq    bigserial PRIMARY KEY,
   record jsonb NOT NULL
-);`;
+);
+CREATE INDEX IF NOT EXISTS events_entity_id ON events ((data->>'id'));`;
 
 // Appends to the hash chain must be serialised, otherwise two writers could both link to the same head.
 const AUDIT_LOCK = 727001;
@@ -77,6 +78,30 @@ export async function createPostgresStore({ connectionString, pool: existingPool
       } finally {
         client.release();
       }
+    },
+    /** Same contract as the memory store: row lock, mutate, write, audit, one transaction. */
+    async updateEvent(id, mutate, audit$ = () => null) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const found = await client.query("SELECT seq, data FROM events WHERE data->>'id' = $1 ORDER BY seq DESC LIMIT 1 FOR UPDATE", [id]);
+        if (!found.rows[0]) { await client.query('ROLLBACK'); return null; }
+        const next = await mutate(found.rows[0].data);
+        await client.query('UPDATE events SET data = $1 WHERE seq = $2', [next, found.rows[0].seq]);
+        const entry = audit$(next);
+        if (entry) await appendAuditRow(client, entry);
+        await client.query('COMMIT');
+        return next;
+      } catch (error) {
+        try { await client.query('ROLLBACK'); } catch { /* ignore */ }
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+    async getEvent(id) {
+      const found = await pool.query("SELECT data FROM events WHERE data->>'id' = $1 ORDER BY seq DESC LIMIT 1", [id]);
+      return found.rows[0]?.data || null;
     },
     /** Newest-first. `anchor` is the hash of the record just beyond the window, so the window still verifies. */
     async snapshot() {

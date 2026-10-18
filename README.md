@@ -37,6 +37,24 @@ Sign-in is on by default. The first visit to `/login.html` shows a setup screen 
 
 Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; login throttling is in memory and resets on restart.
 
+## Recovery loop (real webhooks, real money)
+
+Every signed `payment.failed` / `subscription.*` webhook becomes a **case**. The policy engine decides whether it is `open` (a human may act) or `held` (never actioned automatically).
+
+```
+open ──approve──► approving ──► link_sent ──payment_link.paid──► recovered
+  │                  └─ Razorpay error ─► open (nothing sent)   └─ payment_link.expired ─► expired
+  └──dismiss──► dismissed            held ──dismiss──► dismissed
+```
+
+- **Approve** (`POST /api/cases/:id/approve`, approver role) creates one Razorpay payment link for the failed amount. Razorpay itself texts and emails the customer, so no WhatsApp or email provider is needed yet.
+- **Paid** — add `payment_link.paid` and `payment_link.expired` to the webhook's events in the Razorpay dashboard. The link carries `notes.rf_case`, so the payment lands on the right case and the dashboard shows money actually recovered, not a simulation.
+- **Exactly once** — approval first *claims* the case in a transaction (`open → approving`), then calls Razorpay. Ten simultaneous clicks create one link; a Razorpay failure releases the claim; redelivered paid events change nothing.
+- **Safe by default** — `rzp_live_` keys are refused unless `RAZORPAY_MODE=live` is set. Viewers see masked contacts (`•••3210`).
+- `GET /api/cases` returns every case plus a value-weighted summary: at risk, in flight, recovered and recovery rate.
+
+Known limit: if the server dies between claiming a case and Razorpay answering, that case stays `approving`; check Razorpay for a link with reference `rf_<payment id>` before releasing it by hand.
+
 ## Why this matters
 
 Revenue loss is rarely a single failure: a payment can time out after OTP, a subscription mandate can fail, a B2B invoice can go overdue, or an otherwise high-intent checkout can be abandoned. Generic retries and mass reminders waste customer trust. RecoverFlow chooses the *least intrusive action that is justified by evidence*.

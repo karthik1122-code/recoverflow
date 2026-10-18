@@ -16,6 +16,7 @@ export function createMemoryStore({ maxRecords = 500 } = {}) {
   const audit = [];
   const claimed = new Set();
   let anchor = 'GENESIS';
+  let lock = Promise.resolve();
   const trim = list => { if (list.length > maxRecords) list.length = maxRecords; };
   const trimAudit = () => { if (audit.length > maxRecords) { anchor = audit[maxRecords].integrity_hash; audit.length = maxRecords; } };
 
@@ -41,6 +42,25 @@ export function createMemoryStore({ maxRecords = 500 } = {}) {
       trimAudit();
       return record;
     },
+    /**
+     * Atomic read-modify-write of one event. mutate(record) returns the new record or throws
+     * (then nothing changes). audit(newRecord) may return an audit entry written with it.
+     */
+    updateEvent(id, mutate, audit$ = () => null) {
+      // Serialised so an await inside mutate can never interleave two updates (the Postgres store uses a row lock).
+      const run = lock.then(async () => {
+        const index = events.findIndex(e => e.id === id);
+        if (index === -1) return null;
+        const next = await mutate(events[index]);
+        events[index] = next;
+        const entry = audit$(next);
+        if (entry) { appendAudit(audit, entry); trimAudit(); }
+        return next;
+      });
+      lock = run.catch(() => {});
+      return run;
+    },
+    async getEvent(id) { return events.find(e => e.id === id) || null; },
     snapshot() {
       return { events, audit, anchor };
     },
