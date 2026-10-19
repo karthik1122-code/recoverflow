@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CaseError, initialRecovery, paymentLinkRequest, referenceIdFor, statusOf, summarize, transition } from './cases.mjs';
+import { CaseError, initialRecovery, linksSentSince, paymentLinkRequest, referenceIdFor, statusOf, summarize, transition } from './cases.mjs';
 
 const eligible = (over = {}) => ({ id: 'pay_A1', amount: 125000, currency: 'INR', decision: { status: 'approval_required' }, recovery: initialRecovery({ status: 'approval_required' }), customer: { email: 'a@b.in', contact: '+919999999999' }, ...over });
 const held = () => ({ id: 'pay_H1', amount: 9000, decision: { status: 'held' }, recovery: initialRecovery({ status: 'held' }) });
@@ -110,4 +110,11 @@ test('summary is value-weighted and counts every status', () => {
   assert.equal(s.recovery_rate, 0.5, '3000 recovered of 6000 actioned');
   assert.equal(s.by_status.held, 1);
   assert.equal(summarize([]).recovery_rate, 0);
+});
+
+test('links sent are counted inside the window only', () => {
+  const sentAt = iso => transition(transition(eligible({ id: iso }), 'claim', {}, iso), 'link_sent', { id: 'l', short_url: 'u' }, iso);
+  const records = [sentAt('2026-10-18T10:00:00Z'), sentAt('2026-10-19T09:00:00Z'), eligible()];
+  assert.equal(linksSentSince(records, Date.parse('2026-10-18T12:00:00Z')), 1);
+  assert.equal(linksSentSince(records, Date.parse('2026-10-17T00:00:00Z')), 2);
 });

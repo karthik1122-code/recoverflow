@@ -1,3 +1,5 @@
+import { transition } from './cases.mjs';
+
 /**
  * Synthetic Razorpay payloads for the public demo and for the "Send a test failure" button.
  * Every id is prefixed pay_demo_ / pay_test_ so it can never be mistaken for a real payment.
@@ -84,4 +86,27 @@ export function paidPayload(record) {
       payment: { entity: { id: `pay_paid_${record.id.slice(-12)}`, amount: record.amount, created_at: Math.floor(Date.now() / 1000) } },
     },
   };
+}
+
+/**
+ * Loads the demo store: ingest every scenario, then walk the non-open ones through their history.
+ * Used by the server (DEMO=on) and by the in-browser preview, so both show the same store.
+ */
+export async function seedDemo({ ingestFailure, updateEvent, createPaymentLink, now = Date.now() }) {
+  for (const { outcome, hoursAgo, payload } of demoScenarios(now)) {
+    const receivedAt = new Date(now - hoursAgo * 3_600_000).toISOString();
+    const at = minutes => new Date(Math.min(Date.parse(receivedAt) + minutes * 60_000, now - 60_000)).toISOString();
+    await ingestFailure(payload, JSON.stringify(payload), { receivedAt });
+    const id = payload.payload.payment.entity.id;
+    if (outcome === 'open' || outcome === 'held') continue;
+    if (outcome === 'dismissed') { await updateEvent(id, r => transition(r, 'dismiss', { by: 'demo@recoverflow', reason: 'Customer paid by bank transfer' }, at(40)), () => null); continue; }
+    const link = await createPaymentLink({ reference_id: `rf_${id}` });
+    await updateEvent(id, r => {
+      let next = transition(r, 'claim', { by: 'demo@recoverflow' }, at(22));
+      next = transition(next, 'link_sent', link, at(23));
+      if (outcome === 'recovered') next = transition(next, 'paid', { amount_paid: r.amount }, at(160));
+      if (outcome === 'expired') next = transition(next, 'expired', {}, at(72 * 60));
+      return next;
+    }, r => ({ title: outcome === 'recovered' ? 'Payment recovered' : outcome === 'expired' ? 'Recovery link expired' : 'Payment link sent', detail: 'Seeded demo history.', payment_id: r.id }));
+  }
 }

@@ -33,3 +33,45 @@ Captured headlessly at 1440×900 (first screen) plus full-page scrolls for 15. S
 - Hero: a marigold band with a live announcement panel that you can **hear** (the browser speaks the recovery out loud, the way a counter speaker does)
 - Signature chart: weekly failed money with the recovered share growing inside it
 - Dashboard: greeting with today's number, 14-day recovered trend, ⌘K palette, keyboard shortcuts, bulk approve, reason filter chips, optional spoken announcements when money comes back
+
+---
+
+# Part 2: 108 award-winning sites, any industry (Oct 2026)
+
+Sources: the current Awwwards Sites of the Day, six pages of CSS Design Awards Website of the Day winners, and all-time Site of the Year names (Lusion, igloo inc, Messenger by Abeto, Bruno Simon, Active Theory, Locomotive, Immersive Garden, Darkroom, Basement, Cuberto, Obys, Dogstudio, 14islands, Aristide Benoist). 157 were attempted; 108 loaded in a headless browser (the rest needed WebGL the sandbox couldn't run or blocked bots). Each was captured three times: the first second, after the pointer moved, and after scrolling, and its scripts, canvases, cursor, sound and type sizes were measured.
+
+| Signal | Share of the 108 |
+|---|---|
+| First second is an intro, loader or empty stage | 50% |
+| Custom cursor | 39% |
+| Autoplay hero video | 39% |
+| Smooth scrolling (Lenis, Locomotive) | 44% |
+| WebGL canvas | 27% |
+| Display type 120px or larger | 31% (18% at 200px+) |
+| Sound control | 12% |
+| Words on the page | median 394, a quarter under 95 |
+
+## What they do
+
+1. **Open with a moment.** A loader with a voice ("Loading the playlist… it might take some time", a terminal boot log, "Installing 1-bit charm"), or one control: BMW's site is a single START ENGINE button.
+2. **One object you can touch.** Moto's metal card, Messenger's planet, Webdrift's synth and Mac, YAAS cans, GoalCard's sticker cards, Henrietta's snack mascot. The object is the brand.
+3. **Type as image.** Wordmarks running edge to edge (Neutomni, Halaska, Mejuma, Casa Momo, Garcy), kinetic headlines (Darkroom, La Boîte à Slides).
+4. **Scroll as story.** A scene pins and changes as you scroll, instead of sections stacking.
+5. **Few words, one colour world.** Neutomni red, Hidokmeh yellow, Mild Sugar orange, YAAS candy.
+6. **Craft in small things.** Cursors that label what you can do, sound toggles, honest humour in loaders.
+
+## What RecoverFlow was missing
+
+No entry moment; the speaker was a drawing, not something to play; sections still followed the SaaS order (hero, chart, cards, pricing, FAQ); far too many words.
+
+## The stand-out idea: the soundbox
+
+The most recognisable object in Indian retail is the UPI soundbox on the counter that says "₹2,499 received". RecoverFlow announces money that came back, so the site becomes a soundbox you play: a failed payment slides in, you press the button, the link goes out, and the box says "two thousand four hundred and ninety-nine rupees recovered" with a synthesised chime. None of the 109 product sites or 108 award sites does this, and it is exactly what the product does.
+
+The speaker is drawn from scratch and carries no brand: generic rounded body, dotted grille, a small LCD and one round button.
+
+- **Hero:** the soundbox on a dark counter, its LCD boots ("Connecting to Razorpay… 3 failed"), the visitor presses it. Sound is off until the first press.
+- **Story:** a pinned scene processes one case in four scroll steps (reads the failure, checks it's safe, you approve one link, it closes itself when they pay).
+- **Proof:** the two-week chart of failed money with the recovered share inside it.
+- **Close:** a giant wordmark footer, 8% pricing and the founder's pilot letter.
+- **Dashboard:** the same chime when a case is recovered.

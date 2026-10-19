@@ -1,27 +1,31 @@
 # RecoverFlow
 
-**Get paid for failed Razorpay payments.** RecoverFlow reads every failed payment, explains why it failed in plain words, and sends that customer one Razorpay payment link when someone on your team approves it. When the customer pays, the case closes itself and the money shows in a weekly report.
+**Hear your failed Razorpay payments come back.** RecoverFlow reads every failed payment, explains why it failed in plain words, and sends that customer one Razorpay payment link when someone on your team approves it. When the customer pays, the case closes itself and the money shows in a weekly report.
 
 Pricing for stores: free for 30 days, then 8% of what comes back, nothing if nothing does.
 
 [![Verify](https://github.com/karthik1122-code/recoverflow/actions/workflows/verify.yml/badge.svg)](https://github.com/karthik1122-code/recoverflow/actions/workflows/verify.yml)
 
-![Landing page](docs/landing.png)
+![The soundbox on the landing page](docs/landing.png)
+
+| One case, scroll by scroll | On a phone |
+|---|---|
+| ![Story](docs/story.png) | ![Mobile](docs/mobile.png) |
 
 | Inbox | A recovered case |
 |---|---|
 | ![Inbox](docs/dashboard-light.png) | ![Recovered case](docs/case.png) |
 
-| Dark mode | Site on a phone |
-|---|---|
-| ![Dark](docs/dashboard-dark.png) | ![Mobile](docs/mobile.png) |
+![Dashboard in dark mode](docs/dashboard-dark.png)
 
 ## Run it
 
 ```bash
 npm ci
 DEMO=on AUTH=off npm run dev     # sample stores, simulated links, no keys needed
-npm test                         # 97 tests; set TEST_DATABASE_URL* to also run the Postgres ones
+npm test                         # 100 tests; set TEST_DATABASE_URL* to also run the Postgres ones
+npm run test:ui                  # browser tests (Playwright + Chromium)
+npm run build:preview            # server-free preview in dist-preview/
 ```
 
 Open `http://localhost:4173` for the site and `/app.html` for the dashboard. In the demo, approve a case, then press **Simulate customer paying** to see the full loop.
@@ -155,11 +159,14 @@ Amounts are always integers in **paise**.
 
 ## UI
 
-Design direction **Marigold**, chosen after studying 109 SaaS sites ([docs/DESIGN_STUDY.md](docs/DESIGN_STUDY.md)). Every Indian merchant knows the counter speaker that announces money received; RecoverFlow announces money that came back. Marigold is the colour of shop openings, ink blue is the ledger pen. Newsreader (editorial serif, regular weight) carries the numbers and headlines, Geist runs the interface. Tokens live in `public/tokens.css`; light and dark follow the system and can be switched.
+Chosen after two studies ([docs/DESIGN_STUDY.md](docs/DESIGN_STUDY.md)): 109 SaaS and fintech sites, then 108 award-winning sites from any industry.
 
-- **Site:** a marigold hero with a speaker object you can actually hear (browser speech), a two-week chart of failed money with the recovered share growing inside it, a bento of real product pieces, a recovery calculator, and a founder's pilot letter.
-- **Dashboard:** a greeting that leads with what is waiting, a 14-day recovered trend, reason filter chips, multi-select with a bulk "send links" bar, Ctrl/⌘ K palette, single-key shortcuts (J/K, X, A, /, ?), optional spoken announcements when money comes back, and a case drawer with the stamped receipt, safety check and the exact customer message.
-- Works at phone width, keeps focus visible, traps focus in the drawer, respects reduced motion.
+**The soundbox.** The most recognisable object in Indian retail is the UPI speaker on the counter that says "₹2,499 received". RecoverFlow announces money that came back, so the site is a soundbox you press: a failed payment slides in, the link goes out, and the box chimes and says the amount out loud (Web Audio chime + speech, only after a press, with a sound toggle). The speaker is drawn in CSS from scratch and carries no brand.
+
+- **Site:** the soundbox on a dark counter with an LCD that boots, a pinned scroll story that walks one case through four steps, the two-week "green inside red" chart, a calculator, 8% pricing with the founder's pilot letter, and the name as a full-width wordmark.
+- **Dashboard:** greeting that leads with what is waiting, 14-day recovered trend, reason filter chips, multi-select with a bulk "send links" bar, Ctrl/⌘ K palette, J/K/X/A/slash/? shortcuts, and the same soundbox chime when a case is recovered.
+- Marigold `#F4A51C` and ink `#131A33`; Newsreader for display, Geist for interface, VT323 only on the LCD. Light and dark, phone width, visible focus, reduced motion respected (the story turns into a plain list).
+- `npm run test:ui` drives both in Chromium: approve, bulk send, palette, report, soundbox press, story steps, and no sideways scrolling at 390px in light and dark.
 ## Reliability
 
 Webhook handling is built to be safe to retry:

@@ -1,3 +1,4 @@
+import { announce, chime } from './sound.js';
 // RecoverFlow dashboard. Plain DOM, no framework. All server text goes through esc().
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -84,28 +85,18 @@ function toast(msg, { wave = false } = {}) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3600);
 }
 
-/* ---------- announcements: the counter speaker ---------- */
-const canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+/* ---------- announcements: the counter soundbox ---------- */
 const announceBox = $('announce');
 try { announceBox.checked = localStorage.getItem('rf-announce') === 'on'; } catch { /* storage blocked */ }
-if (!canSpeak) announceBox.closest('.toggle').hidden = true;
 announceBox.addEventListener('change', () => {
   try { localStorage.setItem('rf-announce', announceBox.checked ? 'on' : 'off'); } catch { /* ignore */ }
-  if (announceBox.checked) speak('Announcements are on');
+  if (announceBox.checked) chime(); // the click is the gesture browsers need before any sound
 });
-function speak(text) {
-  if (!canSpeak || !announceBox.checked) return;
-  const u = new SpeechSynthesisUtterance(text);
-  const voices = speechSynthesis.getVoices();
-  u.voice = voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang?.startsWith('en')) || null;
-  u.lang = u.voice?.lang || 'en-IN'; u.rate = 0.95;
-  speechSynthesis.speak(u);
-}
 function announceRecovered(c) {
   const amount = Math.round((c.recovery?.recovered_amount ?? c.amount) / 100);
   const first = nameOf(c).split(' ')[0];
   toast(`${inr.format(amount)} recovered from ${first}`, { wave: true });
-  speak(`${amount} rupees recovered from ${first}`);
+  if (announceBox.checked) announce(amount, first);
 }
 
 /* ---------- data ---------- */
@@ -494,7 +485,7 @@ document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click'
   document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   renderReport().catch(e => toast(e.message));
 }));
-$('printBtn').addEventListener('click', () => window.print());
+$('printBtn')?.addEventListener('click', () => window.print());
 
 /* ---------- audit ---------- */
 async function renderAudit() {

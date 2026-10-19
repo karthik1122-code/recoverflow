@@ -133,3 +133,22 @@ test('link events must be signed like every other webhook', async () => {
   const res = await fetch(`${base}/webhooks/razorpay`, { method: 'POST', headers: { 'x-razorpay-signature': 'f'.repeat(64) }, body: linkEvent('payment_link.paid', 'pay_C1', 'plink_x') });
   assert.equal(res.status, 401);
 });
+
+test('the daily link cap stops approvals once reached, without touching the case', async () => {
+  const port = PORT + 7;
+  const capped = spawn(process.execPath, ['server.mjs'], { env: { ...process.env, DATABASE_URL: '', AUTH: 'off', PORT: String(port), RAZORPAY_WEBHOOK_SECRET: SECRET, RAZORPAY_KEY_ID: 'rzp_test_k', RAZORPAY_KEY_SECRET: 's', RAZORPAY_API_BASE: `http://127.0.0.1:${mock.address().port}`, MAX_LINKS_PER_DAY: '2' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  try {
+    await new Promise((resolve, reject) => { capped.stdout.on('data', d => { if (String(d).includes('ready')) resolve(); }); setTimeout(() => reject(new Error('no start')), 5000); });
+    const b = `http://127.0.0.1:${port}`;
+    const send = body => fetch(`${b}/webhooks/razorpay`, { method: 'POST', headers: { 'x-razorpay-signature': sign(body) }, body });
+    const approve = id => fetch(`${b}/api/cases/${id}/approve`, { method: 'POST', headers: { 'x-ag-csrf': '1' }, body: '{}' });
+    for (const id of ['cap_1', 'cap_2', 'cap_3']) await send(failure(id));
+    assert.equal((await approve('cap_1')).status, 200);
+    assert.equal((await approve('cap_2')).status, 200);
+    const third = await approve('cap_3');
+    assert.equal(third.status, 429);
+    assert.equal((await third.json()).error, 'daily_link_cap');
+    const c = (await (await fetch(`${b}/api/cases`)).json()).cases.find(x => x.id === 'cap_3');
+    assert.equal(c.recovery.status, 'open', 'a refused approval leaves the case untouched');
+  } finally { capped.kill(); await once(capped, 'exit'); }
+});

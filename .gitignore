@@ -2,3 +2,4 @@
 recoverflow-audit.json
 .env
 node_modules
+dist-preview

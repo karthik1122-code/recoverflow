@@ -29,3 +29,5 @@ jobs:
       - run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE rf_loop' -c 'CREATE DATABASE rf_cases'
       - run: npm test
       - run: node evaluate.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui

@@ -1,63 +1,118 @@
+import { announce, thud } from './sound.js';
+
 const $ = id => document.getElementById(id);
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
-/* Header: marigold over the hero, solid once you scroll past it */
+/* Header: transparent over the counter, solid after it */
 const top = $('top');
 const hero = document.querySelector('.hero');
-const onScroll = () => top.classList.toggle('scrolled', window.scrollY > hero.offsetHeight - 70);
+const onScroll = () => top.classList.toggle('scrolled', window.scrollY > hero.offsetHeight - 80);
 window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
 const themeBtn = $('themeBtn');
 const syncTheme = () => { themeBtn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light' : 'Dark'; };
 themeBtn.addEventListener('click', () => { window.rfToggleTheme(); syncTheme(); }); syncTheme();
 
-/* The announcer: cycles through recoveries; speaks only when you ask */
-const recoveries = [
-  { amount: 2499, words: 'two thousand four hundred and ninety nine', who: 'from Ananya in Pune. Her bank timed out at checkout.', short: 'Ananya, Pune' },
-  { amount: 4899, words: 'four thousand eight hundred and ninety nine', who: 'from Rohan in Mumbai. His balance was low on payday eve.', short: 'Rohan, Mumbai' },
-  { amount: 18999, words: 'eighteen thousand nine hundred and ninety nine', who: 'from Vikram in Bengaluru. His card needed updating.', short: 'Vikram, Bengaluru' },
-  { amount: 1299, words: 'one thousand two hundred and ninety nine', who: 'from Meher in Jaipur. Her UPI request expired.', short: 'Meher, Jaipur' },
-  { amount: 6999, words: 'six thousand nine hundred and ninety nine', who: 'from Krish in Hyderabad. The gateway timed out.', short: 'Krish, Hyderabad' },
+/* Sound: on unless the visitor turned it off before. It only ever plays after a press. */
+let soundOn = true;
+try { soundOn = localStorage.getItem('rf-sound') !== 'off'; } catch { /* storage blocked */ }
+const soundBtn = $('soundBtn');
+const syncSound = () => { soundBtn.setAttribute('aria-pressed', String(soundOn)); $('soundLabel').textContent = soundOn ? 'Sound on' : 'Sound off'; };
+soundBtn.addEventListener('click', () => { soundOn = !soundOn; try { localStorage.setItem('rf-sound', soundOn ? 'on' : 'off'); } catch { /* ignore */ } syncSound(); if (!soundOn) speechSynthesis?.cancel(); });
+syncSound();
+
+/* The soundbox */
+const cases = [
+  { id: 'pay_Q8L2', amount: 2499, who: 'Ananya', where: 'Pune', why: 'Bank timed out after OTP' },
+  { id: 'pay_F6R9', amount: 4899, who: 'Rohan', where: 'Mumbai', why: 'Balance was low on payday eve' },
+  { id: 'pay_M2K7', amount: 18999, who: 'Vikram', where: 'Bengaluru', why: 'UPI mandate expired' },
+  { id: 'pay_T9A1', amount: 1299, who: 'Meher', where: 'Jaipur', why: 'UPI request expired' },
+  { id: 'pay_H3C5', amount: 6999, who: 'Krish', where: 'Hyderabad', why: 'Gateway timed out' },
 ];
-let current = 0;
-const wave = $('wave');
-function renderFeed() {
-  const earlier = [1, 2].map(k => recoveries[(current + k) % recoveries.length]);
-  $('annFeed').innerHTML = earlier.map((r, i) => `<li><span>${r.short}</span><span><b>${inr.format(r.amount)}</b> ${i === 0 ? '2 hours ago' : 'yesterday'}</span></li>`).join('');
-}
-function show(i) {
-  current = i % recoveries.length;
-  const r = recoveries[current];
-  const amt = $('annAmount');
-  amt.textContent = inr.format(r.amount);
-  $('annWho').textContent = r.who;
-  if (!reduce) { amt.classList.remove('tick'); void amt.offsetWidth; amt.classList.add('tick'); }
-  renderFeed();
-}
-show(0);
-let cycle = reduce ? null : setInterval(() => show(current + 1), 4200);
+let at = 0, tally = 0, busy = false;
+const box = $('box'), lcd = $('lcd'), press = $('press'), slip = $('slip'), stamp = $('slipStamp');
 
-const canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-if (canSpeak) {
-  const btn = $('hearBtn');
-  btn.hidden = false;
-  btn.addEventListener('click', () => {
-    clearInterval(cycle); cycle = null;
-    const r = recoveries[current];
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(`${r.words} rupees recovered`);
-    const voices = speechSynthesis.getVoices();
-    u.voice = voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang?.startsWith('en')) || null;
-    u.lang = u.voice?.lang || 'en-IN';
-    u.rate = 0.95;
-    u.onstart = () => wave.classList.add('on');
-    u.onend = u.onerror = () => { wave.classList.remove('on'); if (!reduce) cycle = setInterval(() => show(current + 1), 4200); };
-    speechSynthesis.speak(u);
+function showCase(c, { animate = true } = {}) {
+  $('slipId').textContent = c.id;
+  $('slipAmt').textContent = inr.format(c.amount);
+  $('slipWho').textContent = `${c.who}, ${c.where}`;
+  $('slipWhy').textContent = c.why;
+  stamp.textContent = 'Failed';
+  stamp.className = 'stamp slip-stamp';
+  box.classList.remove('won');
+  lcd.textContent = '1 FAILED';
+  if (animate && !reduce) { slip.classList.remove('in', 'out'); void slip.offsetWidth; slip.classList.add('in'); }
+}
+
+async function boot() {
+  if (reduce) { lcd.textContent = '1 FAILED'; return; }
+  for (const line of ['BOOTING', 'RAZORPAY…', 'CONNECTED', '3 FAILED']) { lcd.textContent = line; await wait(420); }
+  lcd.textContent = '1 FAILED';
+}
+
+async function recover() {
+  if (busy) return;
+  busy = true; press.disabled = true;
+  const c = cases[at % cases.length];
+  press.classList.add('down'); setTimeout(() => press.classList.remove('down'), 140);
+  lcd.textContent = 'SENDING';
+  if (!reduce) { const chip = $('chip'); chip.textContent = `rzp.io/l/${c.id.slice(4).toLowerCase()}`; chip.classList.remove('fly'); void chip.offsetWidth; chip.classList.add('fly'); }
+  await wait(reduce ? 200 : 1000);
+  lcd.textContent = 'CUSTOMER PAID';
+  await wait(reduce ? 100 : 500);
+  box.classList.add('won', 'speaking');
+  lcd.textContent = `₹${c.amount.toLocaleString('en-IN')} RCVD`;
+  stamp.innerHTML = `Recovered<small>${inr.format(c.amount)}</small>`;
+  stamp.className = 'stamp slip-stamp is-back slam';
+  tally += c.amount;
+  $('tally').textContent = inr.format(tally);
+  slip.setAttribute('aria-label', `${inr.format(c.amount)} recovered from ${c.who}`);
+  if (soundOn) await announce(c.amount, c.who); else await wait(1400);
+  box.classList.remove('speaking');
+  await wait(700);
+  if (!reduce) { slip.classList.remove('in'); slip.classList.add('out'); await wait(420); }
+  at += 1;
+  showCase(cases[at % cases.length]);
+  if (soundOn) thud();
+  busy = false; press.disabled = false;
+}
+press.addEventListener('click', recover);
+document.addEventListener('keydown', e => {
+  if (e.code !== 'Space' || e.target.closest('input, textarea, select, button, a, summary')) return;
+  const r = hero.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > innerHeight) return; // only while the counter is on screen
+  e.preventDefault(); recover();
+});
+
+/* The box leans toward the pointer */
+if (!reduce && window.matchMedia('(hover: hover)').matches) {
+  const wrap = $('boxWrap');
+  hero.addEventListener('pointermove', e => {
+    const r = wrap.getBoundingClientRect();
+    const x = (e.clientX - (r.left + r.width / 2)) / innerWidth, y = (e.clientY - (r.top + r.height / 2)) / innerHeight;
+    box.style.setProperty('--ry', `${(-14 + x * 22).toFixed(2)}deg`);
+    box.style.setProperty('--rx', `${(6 - y * 14).toFixed(2)}deg`);
   });
+  hero.addEventListener('pointerleave', () => { box.style.removeProperty('--ry'); box.style.removeProperty('--rx'); });
+}
+showCase(cases[0], { animate: false });
+boot();
+
+/* Story: the stage starts complete (step 4) so the page reads without script; scrolling walks through it */
+const story = document.querySelector('.story'), stage = $('stage');
+if (!reduce) {
+  const step = () => {
+    const r = story.getBoundingClientRect();
+    const span = story.offsetHeight - stage.offsetHeight;
+    const p = Math.min(1, Math.max(0, -r.top / Math.max(1, span)));
+    stage.dataset.step = String(Math.min(3, Math.floor(p * 4)));
+  };
+  window.addEventListener('scroll', step, { passive: true }); window.addEventListener('resize', step); step();
 }
 
-/* Proof chart: two weeks from the demo store */
+/* Proof chart */
 const days = [
   ['5', 6098, 0], ['6', 1199, 0], ['7', 2398, 2398], ['8', 1199, 0], ['9', 2398, 1499], ['10', 6896, 4498], ['11', 12394, 5097],
   ['12', 0, 0], ['13', 8094, 3398], ['14', 4198, 2098], ['15', 18996, 11997], ['16', 13395, 7297], ['17', 12496, 2499],
@@ -75,8 +130,10 @@ const totalFailed = days.reduce((a, d) => a + d[1], 0), totalBack = days.reduce(
 $('tFailed').textContent = inr.format(totalFailed);
 $('tBack').textContent = inr.format(totalBack);
 $('tShare').textContent = `${Math.round((totalBack / totalFailed) * 100)}%`;
-if (reduce) chart.classList.add('shown');
-else new IntersectionObserver((e, o) => { if (e.some(x => x.isIntersecting)) { chart.classList.add('shown'); o.disconnect(); } }, { threshold: .35 }).observe(chart);
+if (!reduce && 'IntersectionObserver' in window) {
+  chart.classList.add('armed');
+  new IntersectionObserver((e, o) => { if (e.some(x => x.isIntersecting)) { chart.classList.add('shown'); o.disconnect(); } }, { threshold: .3 }).observe(chart);
+}
 
 /* Calculator */
 const salesSteps = [];

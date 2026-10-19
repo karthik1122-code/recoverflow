@@ -217,6 +217,7 @@ dialog::backdrop { background: rgba(12, 17, 36, .4); }
 .steps > li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; }
 .steps > li::before { content: counter(s); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 400 18px/1 var(--serif); background: var(--panel-2); border: 1px solid var(--line-2); color: var(--ink-2); }
 .steps > li[data-done="true"]::before { content: '✓'; font-family: var(--sans); font-size: 15px; background: var(--back); border-color: var(--back); color: #fff; }
+.steps > li > div { min-width: 0; }
 .steps h3 { margin: 4px 0 6px; font: 400 22px/1.2 var(--serif); }
 .steps p { margin: 0 0 10px; color: var(--ink-2); }
 .steps ul { margin: 0 0 12px; padding-left: 18px; color: var(--ink-2); font-size: 14px; columns: 2; }
@@ -235,7 +236,7 @@ dialog::backdrop { background: rgba(12, 17, 36, .4); }
 }
 @media (max-width: 860px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
-  .side { position: sticky; top: 0; z-index: 30; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--line); min-width: 0; }
+  .side { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--line); min-width: 0; }
   .ws { padding: 0; flex: 1; min-width: 0; }
   .jump { width: auto; flex: none; }
   .jump span:nth-child(2), .jump .kbd { display: none; }

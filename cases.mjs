@@ -94,3 +94,10 @@ export function summarize(records) {
   }
   return { cases: records.length, by_status, at_risk, in_flight, recovered, recovery_rate: actioned ? Math.round((recovered / actioned) * 1000) / 1000 : 0 };
 }
+
+/** How many payment links were sent in the window ending at `now`. Used for the daily safety cap. */
+export function linksSentSince(records, sinceMs) {
+  let n = 0;
+  for (const r of records) for (const h of r.recovery?.history || []) if (h.to === 'link_sent' && Date.parse(h.at) >= sinceMs) n += 1;
+  return n;
+}

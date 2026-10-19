@@ -2,7 +2,10 @@
 // A saved choice wins; otherwise follow the system setting.
 (function () {
   var theme = 'light';
-  try {
+  // A host page (or the reader's explicit choice) may already have set the theme; keep it.
+  var preset = document.documentElement.getAttribute('data-theme');
+  if (preset === 'light' || preset === 'dark') { theme = preset; }
+  else try {
     var saved = localStorage.getItem('rf-theme');
     if (saved === 'light' || saved === 'dark') theme = saved;
     else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark';

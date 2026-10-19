@@ -9,11 +9,11 @@ import { createMemoryStore } from './store.mjs';
 import { createPostgresStore } from './pg-store.mjs';
 import { draftRecoveryMessage } from './messages.mjs';
 import { createMetrics } from './metrics.mjs';
-import { CaseError, initialRecovery, paymentLinkRequest, statusOf, summarize, transition } from './cases.mjs';
+import { CaseError, initialRecovery, linksSentSince, paymentLinkRequest, statusOf, summarize, transition } from './cases.mjs';
 import { razorpayConfig, razorpayProvider, simulatedProvider } from './razorpay.mjs';
 import { sweepStaleApprovals } from './sweeper.mjs';
 import { buildReport } from './report.mjs';
-import { demoScenarios, paidPayload, testFailurePayload } from './demo.mjs';
+import { paidPayload, seedDemo, testFailurePayload } from './demo.mjs';
 import { createHmac } from 'node:crypto';
 import { createAuth, createMemoryAuthStore, createPostgresAuthStore, AuthError } from './auth.mjs';
 
@@ -62,6 +62,8 @@ const DEMO = process.env.DEMO === 'on';
 const rzConfig = razorpayConfig();
 // Real Razorpay when keys are set. The simulated provider is only ever used by the public demo.
 const provider = rzConfig.ready || !DEMO ? razorpayProvider(rzConfig) : simulatedProvider();
+// Safety cap: a runaway approver or a stolen session can't message hundreds of customers in a day.
+const MAX_LINKS_PER_DAY = Math.max(1, Number(process.env.MAX_LINKS_PER_DAY) || 200);
 const LINK_EVENTS = ['payment_link.paid', 'payment_link.expired', 'payment_link.cancelled'];
 const FAILURE_EVENTS = ['payment.failed', 'subscription.pending', 'subscription.halted'];
 const playHits = new Map();
@@ -116,6 +118,8 @@ async function ingestFailure(payload, raw, { receivedAt = new Date().toISOString
 }
 
 async function approveCase(id, by) {
+  const {events} = await store.snapshot();
+  if (linksSentSince(events, Date.now() - 86_400_000) >= MAX_LINKS_PER_DAY) return {status:429, body:{error:'daily_link_cap', message:`The daily limit of ${MAX_LINKS_PER_DAY} payment links is reached. It resets as the oldest links pass 24 hours, or raise MAX_LINKS_PER_DAY.`}};
   if (!provider.ready) return {status:409, body:{error:provider.reason || 'razorpay_not_configured', message:'Add your Razorpay API keys on the Connect page before approving.'}};
   let claimed;
   try {
@@ -135,24 +139,7 @@ async function approveCase(id, by) {
   return {status:200, body:{case:publicCase(updated), link}};
 }
 
-async function seedDemo() {
-  for (const { outcome, hoursAgo, payload } of demoScenarios()) {
-    const receivedAt = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
-    const at = minutes => new Date(Math.min(Date.parse(receivedAt) + minutes * 60_000, Date.now() - 60_000)).toISOString();
-    await ingestFailure(payload, JSON.stringify(payload), { receivedAt });
-    const id = payload.payload.payment.entity.id;
-    if (outcome === 'open' || outcome === 'held') continue;
-    if (outcome === 'dismissed') { await store.updateEvent(id, r => transition(r, 'dismiss', { by: 'demo@recoverflow', reason: 'Customer paid by bank transfer' }, at(40)), () => null); continue; }
-    const link = await provider.createPaymentLink({ reference_id: `rf_${id}` });
-    await store.updateEvent(id, r => {
-      let next = transition(r, 'claim', { by: 'demo@recoverflow' }, at(22));
-      next = transition(next, 'link_sent', link, at(23));
-      if (outcome === 'recovered') next = transition(next, 'paid', { amount_paid: r.amount }, at(160));
-      if (outcome === 'expired') next = transition(next, 'expired', {}, at(72 * 60));
-      return next;
-    }, r => ({ title: outcome === 'recovered' ? 'Payment recovered' : outcome === 'expired' ? 'Recovery link expired' : 'Payment link sent', detail: 'Seeded demo history.', payment_id: r.id }));
-  }
-}const auditEvent =(title, detail, paymentId) => store.addAudit(title, detail, paymentId);
+const auditEvent = (title, detail, paymentId) => store.addAudit(title, detail, paymentId);
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
@@ -349,5 +336,5 @@ const server = createServer(async (request, response) => {
 setInterval(() => auth.sweep().catch(() => {}), 600_000).unref();
 const STALE_MS = Number(process.env.STALE_APPROVAL_MS || 10 * 60_000);
 setInterval(() => sweepStaleApprovals({store, provider, staleMs:STALE_MS}).catch(e => console.error('sweep failed', e.message)), Math.min(60_000, STALE_MS)).unref();
-if (DEMO && (await store.snapshot()).events.length === 0) await seedDemo();
+if (DEMO && (await store.snapshot()).events.length === 0) await seedDemo({ ingestFailure, updateEvent: (id, m, a) => store.updateEvent(id, m, a), createPaymentLink: body => provider.createPaymentLink(body) });
 server.listen(port, () => console.log(`RecoverFlow ready at http://localhost:${port} (${storeKind}, auth: ${AUTH_ON ? 'accounts' : 'OFF (demo)'})`));

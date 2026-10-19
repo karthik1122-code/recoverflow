@@ -86,7 +86,7 @@ test('test payment links are disabled unless explicitly enabled', async () => {
 test('landing page, dashboard and their assets are served', async () => {
   const home = await fetch(`${base}/`);
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /The sound of a failed payment coming back/);
+  assert.match(await home.text(), /Hear your failed payments come back/);
   // Every local file any page links to must exist, so a rename can never ship a broken page.
   for (const page of ['/index.html', '/app.html', '/login.html', '/team.html']) {
     const html = await (await fetch(`${base}${page}`)).text();
