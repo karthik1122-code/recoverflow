@@ -34,7 +34,7 @@ Sign-in is on by default. The first visit to `/login.html` shows a setup screen 
 
 `POST /webhooks/razorpay` never needs a session; it is protected by the Razorpay signature. Passwords use scrypt, sessions are random tokens stored only as SHA-256 hashes, cookies are `HttpOnly; SameSite=Strict`, writes under `/api` need a custom `x-ag-csrf` header, and repeated failed logins lock that email and address for 15 minutes. `AUTH=off` serves the synthetic demo with no sign-in (used for the public showcase); never use it with real data.
 
-Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; login throttling is in memory and resets on restart.
+Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; five wrong passwords lock that email and address for 15 minutes, and the count is stored in Postgres so a restart does not clear it.
 
 ## Why this matters
 
@@ -173,7 +173,7 @@ Set `DATABASE_URL` and the server uses Postgres; leave it unset and it runs in m
 - Razorpay is Test Mode only and the dashboard data is synthetic. There is no merchant onboarding or per-merchant data separation yet.
 - Diagnosis is rule-based. The accuracy numbers come from hand-written test sets, not live payments.
 - Approving an action records the decision; it does not call Razorpay to retry or refund anything.
-- Login throttling and the public demo rate limit live in memory and reset on restart.
+- The public demo rate limit lives in memory and resets on restart. (The login lock is stored in Postgres.)
 - No password reset, email verification or two-factor sign-in.
 
 ## Security notes
