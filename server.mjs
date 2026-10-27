@@ -53,6 +53,18 @@ const readJson = async request => {
 };
 const reply = (response, status, body, extra = {}) => { response.writeHead(status, {'content-type':'application/json; charset=utf-8','cache-control':'no-store',...securityHeaders,...extra}); response.end(JSON.stringify(body)); };
 const playHits = new Map();
+// Behind Render's proxy every request comes from the proxy's address, so per-visitor limits must read X-Forwarded-For.
+// Only trust that header when TRUST_PROXY=true (set in render.yaml); otherwise a client could spoof it.
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+const clientIp = request => (TRUST_PROXY && String(request.headers['x-forwarded-for'] || '').split(',')[0].trim()) || request.socket.remoteAddress || '?';
+// Health: 200 only when the database answers, so the host can restart a broken instance.
+async function checkHealth() {
+  if (!store._pool) return { status: 'ok', store: storeKind };
+  try {
+    await Promise.race([store._pool.query('SELECT 1'), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000).unref())]);
+    return { status: 'ok', store: storeKind };
+  } catch { return { status: 'degraded', store: storeKind, db: 'unreachable' }; }
+}
 const auditEvent =(title, detail, paymentId) => store.addAudit(title, detail, paymentId);
 
 const server = createServer(async (request, response) => {
@@ -66,18 +78,18 @@ const server = createServer(async (request, response) => {
     if (AUTH_ON && request.method === 'POST' && url.pathname === '/api/auth/setup') {
       const body = await readJson(request);
       if (SETUP_TOKEN && body.setupToken !== SETUP_TOKEN) return reply(response, 403, {error:'invalid_setup_token', message:'the setup token is wrong'});
-      try { await auth.setup(body); const s = await auth.login(body.email, body.password, request.socket.remoteAddress); return reply(response, 201, {user:s.user}, {'set-cookie':setCookie(request, s.token, s.maxAge)}); }
+      try { await auth.setup(body); const s = await auth.login(body.email, body.password, clientIp(request)); return reply(response, 201, {user:s.user}, {'set-cookie':setCookie(request, s.token, s.maxAge)}); }
       catch (e) { if (e instanceof AuthError) return reply(response, authStatus(e.code), {error:e.code, message:e.message}); throw e; }
     }
     if (AUTH_ON && request.method === 'POST' && url.pathname === '/api/auth/login') {
       const body = await readJson(request);
-      try { const s = await auth.login(body.email, body.password, request.socket.remoteAddress); return reply(response, 200, {user:s.user}, {'set-cookie':setCookie(request, s.token, s.maxAge)}); }
+      try { const s = await auth.login(body.email, body.password, clientIp(request)); return reply(response, 200, {user:s.user}, {'set-cookie':setCookie(request, s.token, s.maxAge)}); }
       catch (e) { if (e instanceof AuthError) return reply(response, authStatus(e.code), {error:e.code, message:e.message}); throw e; }
     }
     if (AUTH_ON && request.method === 'POST' && url.pathname === '/api/auth/logout') { await auth.logout(token); return reply(response, 200, {ok:true}, {'set-cookie':setCookie(request, '', 0)}); }
     // Public, stateless demo for the landing page: no audit write, no stored data, rate limited per address.
     if (request.method === 'POST' && url.pathname === '/api/play/diagnose') {
-      const ip = request.socket.remoteAddress || '?', now = Date.now();
+      const ip = clientIp(request), now = Date.now();
       const hits = (playHits.get(ip) || []).filter(t => now - t < 60000);
       if (hits.length >= 60) return reply(response, 429, {error:'rate_limited'});
       hits.push(now); playHits.set(ip, hits);
@@ -155,7 +167,7 @@ const server = createServer(async (request, response) => {
       await auditEvent('Test-mode payment link created', `Created link ${data.id}; no real money is involved.`, data.id);
       return reply(response, 201, {id:data.id, short_url:data.short_url, status:data.status});
     }
-    if (request.method === 'GET' && url.pathname === '/health') return reply(response, 200, {status:'ok'});
+    if (request.method === 'GET' && url.pathname === '/health') { const h = await checkHealth(); return reply(response, h.status === 'ok' ? 200 : 503, h); }
     if (request.method === 'GET' || request.method === 'HEAD') {
       let requested; try { requested = decodeURIComponent(url.pathname); } catch { throw new HttpError(400, 'bad_path'); }
       if (requested === '/') requested = '/index.html';
@@ -177,4 +189,7 @@ const server = createServer(async (request, response) => {
   }
 });
 setInterval(() => auth.sweep().catch(() => {}), 600_000).unref();
+if (process.env.NODE_ENV === 'production' && storeKind === 'memory') console.warn('Warning: DATABASE_URL is not set, so data lives in memory and is lost on every restart.');
+// When the host stops the app, finish open requests and close the database pool cleanly.
+process.on('SIGTERM', () => server.close(async () => { try { await store._pool?.end(); } catch { /* already closed */ } process.exit(0); }));
 server.listen(port, () => console.log(`RecoverFlow ready at http://localhost:${port} (${storeKind}, auth: ${AUTH_ON ? 'accounts' : 'OFF (demo)'})`));

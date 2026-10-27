@@ -140,3 +140,11 @@ test('public play endpoint diagnoses without writing to the audit log', async ()
   const after = await (await fetch(`${base}/api/audit`)).json();
   assert.equal(JSON.stringify(after), JSON.stringify(before));
 });
+
+test('health reports the store and answers 200 when it is reachable', async () => {
+  const res = await fetch(`${base}/health`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, 'ok');
+  assert.equal(body.store, 'memory');
+});
