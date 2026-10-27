@@ -86,3 +86,12 @@ else test('postgres auth store: setup, login, session expiry, duplicate email, d
     t += 2 * 3600_000; assert.equal(await auth.userFromToken(s.token), null);
   } finally { await pool.end(); }
 });
+
+test('failed logins are kept in the auth store, so a restarted server still sees the lock', async () => {
+  const db = createMemoryAuthStore();
+  const first = createAuth({ db, maxFailures: 3 });
+  await first.setup({ email: 'lock@x.com', name: 'L', password: 'a-long-password' });
+  for (let i = 0; i < 3; i++) await assert.rejects(first.login('lock@x.com', 'wrong-password', '1.1.1.1'), { code: 'bad_credentials' });
+  const restarted = createAuth({ db, maxFailures: 3 }); // same database, fresh process
+  await assert.rejects(restarted.login('lock@x.com', 'a-long-password', '1.1.1.1'), { code: 'locked' });
+});
