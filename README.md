@@ -6,12 +6,11 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Webhook_Integration-02042B?style=for-the-badge&logo=razorpay&logoColor=0079C1)](https://razorpay.com)
-[![Buildathon](https://img.shields.io/badge/Razorpay_AI-Buildathon_2026-6366F1?style=for-the-badge)](https://github.com/karthik1122-code/recoverflow)
 [![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
 <br />
 
-**A policy-first AI revenue recovery agent built for Razorpay AI Buildathon — Track 03: AI Revenue Recovery.**
+**A policy-first AI revenue recovery agent, built to the Razorpay AI Buildathon brief (Track 03: AI Revenue Recovery). Built for practice; it was not entered.**
 
 ### [▶ Live demo — recoverflow-ten.vercel.app](https://recoverflow-ten.vercel.app) · [Dashboard](https://recoverflow-ten.vercel.app/app.html)
 
@@ -84,6 +83,7 @@ In production, the diagnosis stage can use an LLM with structured JSON output pl
 - No automatic payment, refund, or retry execution.
 - Duplicate-charge and low-confidence cases are held for a human.
 - Every decision includes source evidence and its policy result.
+- A human decision (approve or keep on hold) is saved by the server through `POST /api/decisions`, which needs the approver role and seals the decision into the audit chain with the approver's email. The dashboard only marks a case as recovered after the server accepts the decision. "Recovered" is a demo simulation: no payment is retried or charged.
 
 ## Metrics shown
 
@@ -96,13 +96,6 @@ In production, the diagnosis stage can use an LLM with structured JSON output pl
 ## What broke, and how we handled it
 
 Initially, the recovery logic treated any payment failure as a retry candidate. That would have retried a failed mandate repeatedly and may have contacted customers with a suspected duplicate charge. We added a policy engine that blocks retry-limit breaches, low-confidence diagnoses, and duplicate/dispute signals. Held cases now remain visible in the exception queue instead of being silently dropped.
-
-## Buildathon submission checklist
-
-- [ ] Publish this directory as a public GitHub repository.
-- [ ] Add a short screen recording / deployment link to this README.
-- [ ] Record a five-minute pitch: problem → live sweep → approval gate → metrics → architecture → failure recovery.
-- [ ] Replace the synthetic-demo outcome label with a real test-mode integration only if you can validate it end-to-end.
 
 ## Evaluation
 
@@ -129,10 +122,6 @@ What the first run found: the pattern `fund` matched "Refund processed" and "Fun
 ## Deployment
 
 The repository includes a Render blueprint and a step-by-step [deployment runbook](DEPLOY.md). It deploys the webhook receiver over HTTPS while keeping Test Mode secrets in the host's environment-variable store.
-
-## Buildathon application
-
-Use [SUBMISSION.md](SUBMISSION.md) for the form answers and five-minute demo flow.
 
 ## Project layout
 
@@ -179,6 +168,14 @@ Set `DATABASE_URL` and the server uses Postgres; leave it unset and it runs in m
 - `GET /api/audit` returns the latest 500 records plus an anchor hash, so the window still verifies.
 - Tests in `pg-store.test.mjs` run against a real database when `TEST_DATABASE_URL` is set (skipped otherwise): 200 concurrent duplicates, rollback and retry, a duplicate racing a failing attempt, restart persistence, and tamper detection on a window.
 
+## Known limitations
+
+- Razorpay is Test Mode only and the dashboard data is synthetic. There is no merchant onboarding or per-merchant data separation yet.
+- Diagnosis is rule-based. The accuracy numbers come from hand-written test sets, not live payments.
+- Approving an action records the decision; it does not call Razorpay to retry or refund anything.
+- Login throttling and the public demo rate limit live in memory and reset on restart.
+- No password reset, email verification or two-factor sign-in.
+
 ## Security notes
 
 - Only `public/` is served; source files, `.env` and the audit file are never reachable.
@@ -194,6 +191,7 @@ The HTTP server uses Node's built-in modules. Run `npm ci` once to install `pg`;
 ```bash
 cd recoverflow
 npm test          # unit + server integration tests
+npm run test:e2e  # browser journey: set up admin, sweep, approve, reload, check the audit chain
 npm run evaluate  # synthetic held-out scenario suite
 npm run dev
 ```
