@@ -77,7 +77,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'GET' && url.pathname === '/api/auth/me') return reply(response, 200, {authEnabled:AUTH_ON, needsSetup:AUTH_ON && await auth.needsSetup(), setupTokenRequired:!!SETUP_TOKEN, user});
     if (AUTH_ON && request.method === 'POST' && url.pathname === '/api/auth/setup') {
       const body = await readJson(request);
-      if (SETUP_TOKEN && body.setupToken !== SETUP_TOKEN) return reply(response, 403, {error:'invalid_setup_token', message:'the setup token is wrong'});
+      if (SETUP_TOKEN && body.setupToken !== SETUP_TOKEN) return reply(response, 403, {error:'invalid_setup_token', message:'The setup token is wrong.'});
       try { await auth.setup(body); const s = await auth.login(body.email, body.password, clientIp(request)); return reply(response, 201, {user:s.user}, {'set-cookie':setCookie(request, s.token, s.maxAge)}); }
       catch (e) { if (e instanceof AuthError) return reply(response, authStatus(e.code), {error:e.code, message:e.message}); throw e; }
     }
@@ -144,6 +144,23 @@ const server = createServer(async (request, response) => {
       const draft = draftRecoveryMessage(event, language);
       await auditEvent(draft.allowed ? 'Recovery message drafted' : 'Recovery message blocked', draft.allowed ? `Drafted ${draft.language} communication; approval remains required before sending.` : draft.reason, event.id || 'manual');
       return reply(response, draft.allowed ? 200 : 422, draft);
+    }
+    // A human decision on one recommended action. It is sealed into the audit chain with who made it.
+    if (request.method === 'POST' && url.pathname === '/api/decisions') {
+      if (need('approver')) return;
+      const body = await readJson(request);
+      const paymentId = String(body.payment_id || '');
+      const action = typeof body.action === 'string' ? body.action.trim() : '';
+      const amount = Number(body.amount);
+      if (!/^[\w-]{1,64}$/.test(paymentId)) throw new HttpError(400, 'invalid_payment_id');
+      if (body.decision !== 'approved' && body.decision !== 'held') throw new HttpError(400, 'invalid_decision');
+      if (!action || action.length > 200) throw new HttpError(400, 'invalid_action');
+      if (!Number.isFinite(amount) || amount < 0 || amount > 1e9) throw new HttpError(400, 'invalid_amount');
+      const who = user.email || user.name || 'unknown';
+      const record = body.decision === 'approved'
+        ? await auditEvent(`Human approved ${paymentId}`, `${who} approved "${action}" for ₹${amount.toLocaleString('en-IN')}. One bounded action; automatic retries and further contact stay off.`, paymentId)
+        : await auditEvent(`Human kept ${paymentId} on hold`, `${who} declined "${action}". No money action was taken.`, paymentId);
+      return reply(response, 201, {record});
     }
     if (request.method === 'GET' && url.pathname === '/api/metrics') {
       if (need('viewer')) return;

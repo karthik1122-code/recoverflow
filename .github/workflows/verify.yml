@@ -26,3 +26,6 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: node evaluate.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Browser journey (sign up, sweep, approve, audit)
+        run: npm run test:e2e

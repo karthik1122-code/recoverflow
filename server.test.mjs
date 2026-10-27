@@ -127,6 +127,15 @@ test('accounts mode: sign-in required, setup once, roles enforced, webhook still
   assert.equal((await fetch(`${base}/api/audit`, { headers: v.h() })).status, 200, 'viewers can read');
   assert.equal((await post('/api/diagnose', { id: 'x', amount: 1000, error_description: 'timeout' }, v.h())).status, 403, 'viewers cannot diagnose');
   assert.equal((await post('/api/users', { email: 'y@example.com', name: 'Y', password: 'password-password', role: 'viewer' }, v.h())).status, 403);
+  const decision = { payment_id: 'pay_Q8L2', decision: 'approved', action: 'Offer one delayed retry', amount: 12499 };
+  assert.equal((await post('/api/decisions', decision, v.h())).status, 403, 'viewers cannot approve money actions');
+  assert.equal((await post('/api/decisions', { ...decision, decision: 'refund_everything' }, a.h())).status, 400);
+  assert.equal((await post('/api/decisions', { ...decision, payment_id: '../etc' }, a.h())).status, 400);
+  assert.equal((await post('/api/decisions', decision, a.h())).status, 201);
+  const trail = await (await fetch(`${base}/api/audit`, { headers: a.h() })).json();
+  assert.equal(trail.audit[0].title, 'Human approved pay_Q8L2');
+  assert.match(trail.audit[0].detail, /admin@example\.com approved/);
+  assert.equal(trail.integrity.valid, true, 'the approval is sealed in a valid hash chain');
   await post('/api/auth/logout', {}, v.h());
   assert.equal((await fetch(`${base}/api/audit`, { headers: v.h() })).status, 401);
 });
