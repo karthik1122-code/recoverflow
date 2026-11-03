@@ -1,4 +1,4 @@
-import { appendAudit } from './audit.mjs';
+import { appendAudit } from '../domain/audit.mjs';
 
 /**
  * In-memory store with the same contract a database store must satisfy.

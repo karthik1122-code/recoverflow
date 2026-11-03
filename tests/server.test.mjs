@@ -33,7 +33,7 @@ test('serves the app with security headers', async () => {
 });
 
 test('never serves source files, secrets or traversal paths', async () => {
-  for (const path of ['/.env', '/server.mjs', '/core.mjs', '/package.json', '/../server.mjs', '/%2e%2e/server.mjs', '/public/../.env']) {
+  for (const path of ['/.env', '/server.mjs', '/src/domain/diagnosis.mjs', '/package.json', '/../server.mjs', '/%2e%2e/server.mjs', '/public/../.env']) {
     const res = await fetch(`${base}${path}`);
     assert.equal(res.status, 404, `${path} should be 404`);
   }

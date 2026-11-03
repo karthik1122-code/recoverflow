@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMetrics } from './metrics.mjs';
+import { createMetrics } from '../src/metrics.mjs';
 
 test('counts each kind and rejects unknown kinds', () => {
   const m = createMetrics();

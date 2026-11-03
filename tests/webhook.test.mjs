@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { evaluateRazorpayWebhook, verifyRazorpaySignature } from './webhook.mjs';
+import { evaluateRazorpayWebhook, verifyRazorpaySignature } from '../src/domain/webhook.mjs';
 
 test('accepts a valid Razorpay HMAC signature', () => {
   const raw = Buffer.from('{"event":"payment.failed"}');

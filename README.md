@@ -125,17 +125,49 @@ The repository includes a Render blueprint and a step-by-step [deployment runboo
 
 ## Project layout
 
+Pure business rules sit in `src/domain` and know nothing about HTTP or storage. Storage has one contract with two implementations. The HTTP layer is split into one file per group of routes.
+
 ```
-server.mjs        HTTP server: API, webhook receiver, static files (public/ only)
-core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
-webhook.mjs       HMAC verification + Razorpay payload evaluation
-audit.mjs         hash-chained audit log      idempotency.mjs  stable event keys
-metrics.mjs       process counters behind /api/metrics
-store.mjs         in-memory store: atomic webhook commit (claim + record + audit, or nothing)
-pg-store.mjs      same contract on Postgres, one transaction per webhook
-messages.mjs      consent-safe message drafts (English / Hinglish)
-public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
+server.mjs                    Entry: picks the store, builds auth and metrics, starts listening
+src/
+  config.mjs                  Every environment variable in one place
+  domain/                     Business rules, no I/O (easy to unit test)
+    diagnosis.mjs             diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
+    webhook.mjs               HMAC verification + Razorpay payload evaluation
+    idempotency.mjs           Stable event keys, so a retried delivery is recognised
+    audit.mjs                 Hash-chained audit log and its verifier
+    messages.mjs              Consent-safe message drafts (English / Hinglish)
+  store/                      Same contract (commitWebhook, addAudit, snapshot), two implementations
+    memory-store.mjs          In memory: atomic webhook commit (claim + record + audit, or nothing)
+    pg-store.mjs              Postgres: one transaction per webhook, advisory lock for audit appends
+  auth/auth.mjs               Accounts, sessions, roles, login lock (memory or Postgres)
+  metrics.mjs                 Process counters behind /api/metrics
+  http/
+    handler.mjs               CSRF check -> who is signed in -> public routes -> sign-in check -> private routes -> 404
+    respond.mjs               reply(), body limits, JSON parsing, HttpError, cookies, client address
+    routes/
+      auth.routes.mjs         /api/auth/me, setup, login, logout
+      users.routes.mjs        /api/users (admin)
+      webhook.routes.mjs      POST /webhooks/razorpay (signature-protected, idempotent)
+      recovery.routes.mjs     /api/play/diagnose (public demo), /api/diagnose, /api/draft-message, /api/decisions
+      ops.routes.mjs          /health, /api/metrics, /api/audit, /api/create-test-payment-link
+      static.routes.mjs       Files from public/ only, with the dashboard login redirect
+public/                       Landing page, dashboard and assets: the only directory served
+eval/                         evaluate.mjs, evaluate-hard.mjs and the 47 hand-written cases
+tests/                        Unit, store-contract, Postgres and server tests
+e2e/                          Browser journey (Playwright)
 ```
+
+### Where to change things
+
+| You want to... | Change |
+| --- | --- |
+| Add or change a failure type or policy rule | `src/domain/diagnosis.mjs`, then run `npm run evaluate:hard` |
+| Change a recovery message | `src/domain/messages.mjs` |
+| Add an API endpoint | The matching file in `src/http/routes/` (or a new file listed in `handler.mjs`) |
+| Make a route public or admin-only | Its place in `PUBLIC` / `PRIVATE` in `handler.mjs`, or its `need('role')` check |
+| Change what is stored or how | `src/store/` (both implementations keep the same contract; `tests/memory-store.test.mjs` and `tests/pg-store.test.mjs` check it) |
+| Add an environment variable | `src/config.mjs` |
 
 Amounts are always integers in **paise**.
 

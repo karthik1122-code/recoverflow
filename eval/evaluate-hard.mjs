@@ -1,5 +1,5 @@
-import { diagnose, policyDecision } from './core.mjs';
-import { cases } from './eval-cases.mjs';
+import { diagnose, policyDecision } from '../src/domain/diagnosis.mjs';
+import { cases } from './cases.mjs';
 
 const rows = cases.map(event => {
   const diagnosis = diagnose(event);

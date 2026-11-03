@@ -1,4 +1,4 @@
-import { diagnose, policyDecision } from './core.mjs';
+import { diagnose, policyDecision } from './diagnosis.mjs';
 
 const templates = {
   en: {

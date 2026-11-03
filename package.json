@@ -7,8 +7,8 @@
     "dev": "node --env-file-if-exists=.env server.mjs",
     "start": "node server.mjs",
     "test": "node --test",
-    "evaluate": "node evaluate.mjs",
-    "evaluate:hard": "node evaluate-hard.mjs",
+    "evaluate": "node eval/evaluate.mjs",
+    "evaluate:hard": "node eval/evaluate-hard.mjs",
     "test:e2e": "node --test e2e/*.e2e.mjs"
   },
   "dependencies": {

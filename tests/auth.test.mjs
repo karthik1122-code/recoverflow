@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAuth, createMemoryAuthStore, hashPassword, verifyPassword, AuthError } from './auth.mjs';
+import { createAuth, createMemoryAuthStore, hashPassword, verifyPassword, AuthError } from '../src/auth/auth.mjs';
 
 const mk = (opts = {}) => { let t = 1_000_000; const clock = { now: () => t, advance: ms => { t += ms; } }; return { auth: createAuth({ db: createMemoryAuthStore(), now: clock.now, ...opts }), clock }; };
 const good = { email: 'Ada@Example.com', name: 'Ada', password: 'correct horse battery' };
@@ -70,7 +70,7 @@ test('roles are ordered and the last admin cannot be removed', async () => {
 const url = process.env.TEST_DATABASE_URL;
 if (!url) test('postgres auth store skipped (TEST_DATABASE_URL not set)', { skip: true }, () => {});
 else test('postgres auth store: setup, login, session expiry, duplicate email, delete cascades sessions', async () => {
-  const { default: pg } = await import('pg'); const { createPostgresAuthStore } = await import('./auth.mjs');
+  const { default: pg } = await import('pg'); const { createPostgresAuthStore } = await import('../src/auth/auth.mjs');
   const pool = new pg.Pool({ connectionString: url });
   try {
     await createPostgresAuthStore(pool); await pool.query('TRUNCATE sessions, users CASCADE');

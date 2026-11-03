@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendAudit, verifyAuditChain } from './audit.mjs';
+import { appendAudit, verifyAuditChain } from '../src/domain/audit.mjs';
 
 test('validates a linked audit history', () => {
   const chain = [];

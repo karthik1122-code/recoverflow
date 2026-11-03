@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { diagnose, policyDecision } from './core.mjs';
+import { diagnose, policyDecision } from './diagnosis.mjs';
 
 export function verifyRazorpaySignature(rawBody, signature, secret) {
   if (!secret || !signature) return false;
