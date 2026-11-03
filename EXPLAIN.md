@@ -8,10 +8,10 @@ RecoverFlow receives Razorpay payment-failure webhooks, works out why the paymen
 
 ## The 2-minute version
 
-1. Razorpay sends a signed `POST /webhooks/razorpay`. The server checks the HMAC signature against the raw body first. A forged request gets 401 and nothing else happens (`webhook.mjs`).
-2. It derives an idempotency key from the event type, entity id and timestamp (`idempotency.mjs`). A retried delivery has the same body, so it gets the same key.
-3. `commitWebhook(key, build)` runs inside one database transaction (`pg-store.mjs`). The key is inserted as a primary key. If it already exists, this is a duplicate and we return 200 without doing anything. Otherwise the event is diagnosed, the event row is inserted, and a hash-chained audit record is appended. All of it commits together or none of it does.
-4. `diagnose()` labels the failure (timeout, insufficient funds, expired card or mandate, duplicate, dispute, retry limit, unknown). `policyDecision()` then decides whether any action is allowed: no consent, high value, low confidence, or a failure type that is never auto-actioned all go to a human queue (`core.mjs`).
+1. Razorpay sends a signed `POST /webhooks/razorpay`. The server checks the HMAC signature against the raw body first. A forged request gets 401 and nothing else happens (`src/domain/webhook.mjs`).
+2. It derives an idempotency key from the event type, entity id and timestamp (`src/domain/idempotency.mjs`). A retried delivery has the same body, so it gets the same key.
+3. `commitWebhook(key, build)` runs inside one database transaction (`src/store/pg-store.mjs`). The key is inserted as a primary key. If it already exists, this is a duplicate and we return 200 without doing anything. Otherwise the event is diagnosed, the event row is inserted, and a hash-chained audit record is appended. All of it commits together or none of it does.
+4. `diagnose()` labels the failure (timeout, insufficient funds, expired card or mandate, duplicate, dispute, retry limit, unknown). `policyDecision()` then decides whether any action is allowed: no consent, high value, low confidence, or a failure type that is never auto-actioned all go to a human queue (`src/domain/diagnosis.mjs`).
 5. The dashboard shows the queue, the live feed, the audit-chain check and the webhook health numbers.
 
 ## Architecture
@@ -33,7 +33,7 @@ Razorpay -> POST /webhooks/razorpay
         GET /api/audit, /api/metrics  -> dashboard
 ```
 
-Storage is a small contract (`commitWebhook`, `addAudit`, `snapshot`) with two implementations: in memory (`store.mjs`) and Postgres (`pg-store.mjs`). `DATABASE_URL` picks one.
+Storage is a small contract (`commitWebhook`, `addAudit`, `snapshot`) with two implementations: in memory (`src/store/memory-store.mjs`) and Postgres (`src/store/pg-store.mjs`). `DATABASE_URL` picks one.
 
 ## Decisions and why
 
@@ -57,7 +57,7 @@ Storage is a small contract (`commitWebhook`, `addAudit`, `snapshot`) with two i
 2. **Key collisions.** When a payload had no entity id or timestamp, every such event shared one fallback key, so a second, different event was silently dropped. Fixed with a fingerprint of the raw body.
 3. **Audit chain after trimming.** Keeping only the latest 500 records broke verification, because the oldest kept record pointed at a record that was gone. A new test caught it. The fix is an anchor: the hash of the last dropped record.
 4. **Refunds treated as insufficient funds.** The first run of the hard evaluation set scored 72.3% and queued reminders for refund messages, because the pattern `fund` matched "Refund processed". Fixed with word-aware patterns and an explicit refund and reversal guard. After the fix it scored 97.9% with 0 unsafe actions. That figure was measured on the same cases used to fix the rules, so it is a regression gate and not a prediction of live accuracy.
-5. **A deployment that would have crashed.** The Dockerfile did not copy `store.mjs`, so the container would have failed on start. Found while adding the Postgres store.
+5. **A deployment that would have crashed.** The Dockerfile did not copy `store.mjs`, so the container would have failed on start. Found while adding the Postgres store. It happened again later with `metrics.mjs`; the Dockerfile now copies the whole `src/` folder so a new file cannot be missed.
 6. **A name collision in the dashboard.** My new metrics function had the same name as an existing one and silently replaced it. The page error showed up in a headless browser check, not in the unit tests, so UI changes need a real browser check.
 
 ## Likely interview questions
@@ -101,4 +101,4 @@ Add a real Razorpay Test Mode loop end to end (failed payment, webhook, approved
 
 ## Files to know by heart
 
-`core.mjs` (rules and policy), `pg-store.mjs` (the transaction), `idempotency.mjs` (keys), `audit.mjs` (hash chain), `webhook.mjs` (signature), `server.mjs` (the route that ties them together).
+`src/domain/diagnosis.mjs` (rules and policy), `src/store/pg-store.mjs` (the transaction), `src/domain/idempotency.mjs` (keys), `src/domain/audit.mjs` (hash chain), `src/domain/webhook.mjs` (signature), `src/http/routes/webhook.routes.mjs` (the route that ties them together).
