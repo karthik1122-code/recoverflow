@@ -135,3 +135,36 @@ new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { type('en'); o.
 const lab = $('#labCode');
 const LAB = `<span class="k">"diagnosis"</span>: {\n  <span class="k">"label"</span>: <span class="s">"transient_bank_failure"</span>,\n  <span class="k">"confidence"</span>: <span class="n">0.94</span>,\n  <span class="k">"recommended_action"</span>: <span class="s">"Offer one delayed retry"</span>\n},\n<span class="k">"decision"</span>: {\n  <span class="k">"policy_code"</span>: <span class="s">"HUMAN_GATE"</span>\n}`;
 new IntersectionObserver((es, o) => { if (!es[0].isIntersecting) return; o.disconnect(); if (reduce) { lab.innerHTML = LAB; return; } const plain = LAB.replace(/<[^>]+>/g, ''); let i = 0; const tick = () => { i = Math.min(plain.length, i + 3); let shown = 0, out = ''; for (const part of LAB.split(/(<[^>]+>)/)) { if (part.startsWith('<')) { out += part; continue; } const take = Math.max(0, Math.min(part.length, i - shown)); out += part.slice(0, take); shown += part.length; } lab.innerHTML = out + (i < plain.length ? '' : ''); if (i < plain.length) setTimeout(tick, 16); }; tick(); }, { threshold: .4 }).observe(lab);
+
+
+/* ---- try-it playground (real engine, nothing stored) ---- */
+const tryForm = $('#tryForm'), tryOut = $('#tryOut');
+if (tryForm) tryForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const rupees = Math.round(Number($('#tAmt').value));
+  const retries = Math.round(Number($('#tRetry').value));
+  if (!Number.isFinite(rupees) || rupees < 1 || rupees > 100000000) { tryOut.innerHTML = '<p class="why">Enter an amount between ₹1 and ₹10,00,00,000.</p>'; return; }
+  const event = {
+    id: 'try_' + Date.now(), amount: rupees * 100,
+    error_description: $('#tDesc').value.trim().slice(0, 200),
+    customer_opted_in: $('#tConsent').checked,
+    retry_count: Number.isFinite(retries) && retries >= 0 ? Math.min(retries, 10) : 0,
+    duplicate_suspected: $('#tDup').checked,
+  };
+  tryOut.innerHTML = '<p class="muted">Asking the engine…</p>';
+  try {
+    const r = await fetch('/api/play/diagnose', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ag-csrf': '1' }, body: JSON.stringify(event) });
+    if (r.status === 429) { tryOut.innerHTML = '<p class="why">Too many tries in a minute. Wait a moment and try again.</p>'; return; }
+    if (!r.ok) throw new Error(String(r.status));
+    const { diagnosis: d, decision: p } = await r.json();
+    const ok = p.status === 'approval_required';
+    const cls = ok ? 'ok' : p.policy_code === 'HIGH_VALUE_REVIEW' ? 'rev' : 'hold';
+    const verdict = ok ? 'Allowed, after one human approval' : p.policy_code === 'HIGH_VALUE_REVIEW' ? 'Sent to senior review' : 'Blocked by policy';
+    tryOut.innerHTML = `<div class="verdict">${verdict}</div>
+      <div class="row"><span class="tag ${cls}">${esc(p.policy_code)}</span><span class="mono muted">${esc(d.label.replaceAll('_', ' '))} · ${Math.round(d.confidence * 100)}% confidence</span></div>
+      <p class="why">${esc(p.reason || d.recommended_action)}</p>
+      <div><b>Suggested step:</b> <span class="muted">${esc(d.recommended_action)}</span></div>
+      <div><b>Evidence</b><ul>${(d.evidence || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      <p class="muted" style="font-size:13px">${ok ? 'Nothing runs automatically: in the dashboard a person approves this step before anything is sent.' : 'Nothing is sent: in the dashboard this lands in a person\'s queue.'}</p>`;
+  } catch { tryOut.innerHTML = '<p class="why">The engine did not answer. Refresh the page and try again.</p>'; }
+});

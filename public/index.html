@@ -41,7 +41,7 @@
         <p class="lede">Every failed payment has a reason. RecoverFlow reads the evidence, picks <b>one</b> bounded recovery action, and waits for a human — leaving a tamper-evident trail behind every decision.</p>
         <p class="rotator" aria-live="off">Built for <span class="rot-wrap"><span class="rot" id="rot">OTP timeouts</span></span></p>
         <div class="hero-cta">
-          <a class="btn btn-lime magnetic" href="app.html">Run the live demo <span class="arr">→</span></a>
+          <a class="btn btn-lime magnetic" href="#try">Try a failed payment <span class="arr">→</span></a>
           <a class="btn btn-ghost magnetic" href="#engine">Watch the engine</a>
         </div>
         <ul class="trust">
@@ -139,7 +139,7 @@
           <span class="eyebrow">Guardrails</span>
           <h2 class="h2">Hard stops, <em>not suggestions.</em></h2>
           <p class="lede sm">These run on every event, before a human ever sees a recommendation.</p>
-          <a class="btn btn-dark magnetic" href="app.html#lab">Try to break them <span class="arr">→</span></a>
+          <a class="btn btn-dark magnetic" href="#try">Try to break them <span class="arr">→</span></a>
         </div>
         <ul class="rules">
           <li class="rule reveal"><span class="code mono">NO_CONSENT</span><p>No contact after opt-out. Ever.</p></li>
@@ -148,6 +148,28 @@
           <li class="rule reveal"><span class="code mono">LOW_CONFIDENCE</span><p>Unsure diagnoses never become actions.</p></li>
           <li class="rule reveal"><span class="code mono">HUMAN_GATE</span><p>Everything else still needs one explicit approval.</p></li>
         </ul>
+      </div>
+    </section>
+
+    <!-- TRY IT: public, stateless playground on the real engine -->
+    <section class="try wrap" id="try">
+      <div class="sec-head reveal"><span class="eyebrow">Try it, no sign-in</span><h2 class="h2">Describe a failed payment. <em>See the decision.</em></h2>
+        <p class="lede sm">This calls the real diagnosis and policy engine. Nothing is stored and no message is sent.</p></div>
+      <div class="try-grid">
+        <form class="try-form reveal" id="tryForm" novalidate>
+          <label class="try-f">Why did it fail?
+            <input id="tDesc" maxlength="200" value="insufficient balance" list="tReasons" autocomplete="off" />
+            <datalist id="tReasons"><option value="insufficient balance"><option value="issuer network timeout after OTP"><option value="UPI mandate failed"><option value="invoice overdue 14 days"><option value="Refund processed to customer"><option value="card declined by bank"></datalist>
+          </label>
+          <label class="try-f">Amount (₹)<input id="tAmt" type="number" min="1" max="100000000" step="1" value="6500" inputmode="numeric" /></label>
+          <label class="try-f">Earlier retries<input id="tRetry" type="number" min="0" max="10" step="1" value="0" inputmode="numeric" /></label>
+          <label class="try-c"><input id="tConsent" type="checkbox" checked /> Customer agreed to be contacted</label>
+          <label class="try-c"><input id="tDup" type="checkbox" /> Looks like a duplicate charge</label>
+          <button class="btn btn-lime" type="submit">Diagnose <span class="arr">→</span></button>
+        </form>
+        <div class="try-out reveal" id="tryOut" aria-live="polite">
+          <p class="muted">Pick a reason, change the amount or untick consent, then press Diagnose. Try ₹6,00,000, or a customer who said no.</p>
+        </div>
       </div>
     </section>
 
