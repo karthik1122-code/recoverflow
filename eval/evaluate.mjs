@@ -1,4 +1,4 @@
-import { diagnose, policyDecision } from './core.mjs';
+import { diagnose, policyDecision } from '../src/domain/diagnosis.mjs';
 
 // Fixed, synthetic held-out scenario suite. It is intentionally separate from
 // the UI examples and must never be represented as production merchant data.

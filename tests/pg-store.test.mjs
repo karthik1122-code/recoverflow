@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPostgresStore } from './pg-store.mjs';
-import { verifyAuditChain } from './audit.mjs';
+import { createPostgresStore } from '../src/store/pg-store.mjs';
+import { verifyAuditChain } from '../src/domain/audit.mjs';
 
 // Runs against a real Postgres. Skipped unless TEST_DATABASE_URL is set:
 //   TEST_DATABASE_URL=postgres://user:pass@host/db npm test

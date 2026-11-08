@@ -58,7 +58,7 @@
       <main class="content" id="main">
         <header class="hero" id="overview">
           <div class="hero-copy">
-            <p class="eyebrow"><span class="eyebrow-dot"></span>AI revenue recovery · Razorpay AI Buildathon</p>
+            <p class="eyebrow"><span class="eyebrow-dot"></span>AI revenue recovery · Razorpay Test Mode</p>
             <h1>Recover revenue.<br /><em>With receipts.</em></h1>
             <p class="subhead">RecoverFlow diagnoses why a payment failed, recommends one bounded action, and leaves a tamper-evident trail. The AI proposes; policy decides; a human approves.</p>
             <div class="hero-actions">
@@ -197,7 +197,7 @@
         <footer class="footer">
           <div class="foot-grid">
             <div><a class="brand" href="/" title="Back to home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="18" height="18"><path d="M8 22V10h8a4 4 0 0 1 0 8h-8M15 18l7 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-word">recover<em>flow</em></span></a>
-              <p class="foot-text">Policy-first AI revenue recovery. Built for the Razorpay AI Buildathon, Track 03.</p></div>
+              <p class="foot-text">Policy-first AI revenue recovery. Built to the Razorpay AI Buildathon brief (Track 03).</p></div>
             <div><h4>Product</h4><a href="#cases">Recovery queue</a><a href="#live">Live webhooks</a><a href="#lab">Decision lab</a><a href="#audit">Audit trail</a></div>
             <div><h4>Project</h4><a href="https://github.com/karthik1122-code/recoverflow" target="_blank" rel="noreferrer">Source on GitHub</a><a href="https://github.com/karthik1122-code/recoverflow/blob/main/ARCHITECTURE.md" target="_blank" rel="noreferrer">Architecture</a><a href="https://github.com/karthik1122-code/recoverflow/blob/main/DEPLOY.md" target="_blank" rel="noreferrer">Deploy guide</a></div>
             <div><h4>Built by</h4><a href="https://github.com/karthik1122-code" target="_blank" rel="noreferrer">Karthik Uppari</a><a href="https://linkedin.com/in/karthik-uppari-4005a7373" target="_blank" rel="noreferrer">LinkedIn</a></div>
@@ -207,7 +207,7 @@
       </main>
     </div>
 
-    <dialog id="approvalDialog"><form method="dialog"><button class="close" value="cancel" aria-label="Close">×</button><p class="eyebrow">Human in the loop</p><h2>Approve recovery action?</h2><div id="approvalContent"></div><div class="dialog-actions"><button value="cancel" class="btn btn-ghost">Keep on hold</button><button value="approve" class="btn btn-primary" id="confirmApproval">Approve action</button></div></form></dialog>
+    <dialog id="approvalDialog"><form method="dialog"><button class="close" value="cancel" aria-label="Close">×</button><p class="eyebrow">Human in the loop</p><h2>Approve recovery action?</h2><div id="approvalContent"></div><div class="dialog-actions"><button value="hold" class="btn btn-ghost">Keep on hold</button><button value="approve" class="btn btn-primary" id="confirmApproval">Approve action</button></div></form></dialog>
     <dialog id="caseDialog"><form method="dialog"><button class="close" value="cancel" aria-label="Close">×</button><p class="eyebrow">Recovery case file</p><h2 id="caseTitle">Payment case</h2><div id="caseContent"></div></form></dialog>
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
     <script src="app.js"></script>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAuth, createMemoryAuthStore, hashPassword, verifyPassword, AuthError } from './auth.mjs';
+import { createAuth, createMemoryAuthStore, hashPassword, verifyPassword, AuthError } from '../src/auth/auth.mjs';
 
 const mk = (opts = {}) => { let t = 1_000_000; const clock = { now: () => t, advance: ms => { t += ms; } }; return { auth: createAuth({ db: createMemoryAuthStore(), now: clock.now, ...opts }), clock }; };
 const good = { email: 'Ada@Example.com', name: 'Ada', password: 'correct horse battery' };
@@ -70,7 +70,7 @@ test('roles are ordered and the last admin cannot be removed', async () => {
 const url = process.env.TEST_DATABASE_URL;
 if (!url) test('postgres auth store skipped (TEST_DATABASE_URL not set)', { skip: true }, () => {});
 else test('postgres auth store: setup, login, session expiry, duplicate email, delete cascades sessions', async () => {
-  const { default: pg } = await import('pg'); const { createPostgresAuthStore } = await import('./auth.mjs');
+  const { default: pg } = await import('pg'); const { createPostgresAuthStore } = await import('../src/auth/auth.mjs');
   const pool = new pg.Pool({ connectionString: url });
   try {
     await createPostgresAuthStore(pool); await pool.query('TRUNCATE sessions, users CASCADE');
@@ -85,4 +85,13 @@ else test('postgres auth store: setup, login, session expiry, duplicate email, d
     assert.equal(await auth.userFromToken(vs.token), null);
     t += 2 * 3600_000; assert.equal(await auth.userFromToken(s.token), null);
   } finally { await pool.end(); }
+});
+
+test('failed logins are kept in the auth store, so a restarted server still sees the lock', async () => {
+  const db = createMemoryAuthStore();
+  const first = createAuth({ db, maxFailures: 3 });
+  await first.setup({ email: 'lock@x.com', name: 'L', password: 'a-long-password' });
+  for (let i = 0; i < 3; i++) await assert.rejects(first.login('lock@x.com', 'wrong-password', '1.1.1.1'), { code: 'bad_credentials' });
+  const restarted = createAuth({ db, maxFailures: 3 }); // same database, fresh process
+  await assert.rejects(restarted.login('lock@x.com', 'a-long-password', '1.1.1.1'), { code: 'locked' });
 });

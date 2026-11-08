@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { razorpayEventKey } from './idempotency.mjs';
+import { razorpayEventKey } from '../src/domain/idempotency.mjs';
 
 test('generates the same key for a retried webhook snapshot', () => {
   const payload = {event:'payment.failed',created_at:1730000000,payload:{payment:{entity:{id:'pay_replay',created_at:1730000000}}}};

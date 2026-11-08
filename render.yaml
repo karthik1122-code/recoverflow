@@ -5,10 +5,14 @@ services:
     plan: free
     buildCommand: npm ci && npm test
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: RAZORPAY_KEY_ID

@@ -118,7 +118,8 @@ function renderCases() {
 function renderAudit() {
   const local = audit.map((a) => `<div class="audit-item"><div><strong>${esc(a.title)}</strong><p>${esc(a.detail)}</p></div><time>${esc(a.time)}</time></div>`);
   const remote = serverState.audit.slice(0, 20).map((a) => `<div class="audit-item" style="border-left-color:var(--blue)"><div><strong>${esc(a.title)}</strong><p>${esc(a.detail)} <span class="mono" style="color:var(--faint)">#${esc(String(a.integrity_hash || '').slice(0, 10))}</span></p></div><time>${esc(clock(new Date(a.at)))}</time></div>`);
-  const rows = [...local, ...remote];
+  // When the server is reachable its hash-chained trail is the record; the local list is only an offline fallback.
+  const rows = serverState.online && remote.length ? remote : local;
   $('auditLog').innerHTML = rows.length ? rows.join('') : '<p class="empty">No sweep has been run. Every decision will appear here with its evidence, policy status and outcome.</p>';
 }
 
@@ -280,15 +281,35 @@ async function draftMessage(c, language) {
   }
 }
 
-$('approvalDialog').addEventListener('close', () => {
-  if ($('approvalDialog').returnValue === 'approve' && activeCase) {
-    activeCase.outcome = 'recovered';
-    audit.unshift({ title: `Approved and recovered ${activeCase.id}`, detail: `Human approved “${activeCase.action}”. Outcome recorded as recovered for this demo simulation. Evidence and policy boundary retained.`, time: clock() });
+// The decision is saved on the server first (sealed in the audit chain with the approver's name).
+// The dashboard only shows the case as recovered once the server has accepted it.
+async function recordDecision(c, decision) {
+  const res = await fetch('/api/decisions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payment_id: c.id, decision, action: c.action, amount: c.amount }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || (res.status === 403 ? 'Your role cannot approve actions.' : 'The decision was not saved. Try again.'));
+}
+
+$('approvalDialog').addEventListener('close', async () => {
+  const c = activeCase;
+  const choice = $('approvalDialog').returnValue;
+  activeCase = null;
+  if (!c || (choice !== 'approve' && choice !== 'hold')) return;
+  try {
+    await recordDecision(c, choice === 'approve' ? 'approved' : 'held');
+  } catch (e) {
+    if (serverState.online) { toast(e instanceof TypeError ? 'Cannot reach the server. Nothing was approved.' : e.message); return; }
+    // Offline static demo: keep a local, clearly labelled record instead.
+  }
+  if (choice === 'approve') {
+    c.outcome = 'recovered';
+    audit.unshift({ title: `Approved ${c.id}`, detail: `Human approved “${c.action}”. Outcome shown as recovered for this demo simulation.`, time: clock() });
     renderAll();
     if (swept) $('recoveredCount').textContent = totals().done;
-    toast(`${activeCase.customer}: ${rupees(activeCase.amount)} recovered`);
+    toast(`${c.customer}: approved · ${rupees(c.amount)} marked recovered (simulated)`);
+  } else {
+    toast(`${c.customer}: kept on hold`);
   }
-  activeCase = null;
+  refreshServer();
 });
 
 /* ---------- decision lab ---------- */

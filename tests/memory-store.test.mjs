@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMemoryStore } from './store.mjs';
-import { verifyAuditChain } from './audit.mjs';
+import { createMemoryStore } from '../src/store/memory-store.mjs';
+import { verifyAuditChain } from '../src/domain/audit.mjs';
 
 const record = id => ({ event: { id }, audit: { title: `Webhook ${id}`, detail: 'ok', payment_id: id }, value: id });
 

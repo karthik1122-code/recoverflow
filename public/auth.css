@@ -1,3 +1,4 @@
+[hidden]{display:none!important}
 .authpage{min-height:100vh;display:grid;place-items:center;padding:24px}
 .authwrap{width:min(420px,100%);display:grid;gap:22px;justify-items:center}
 .authcard{width:100%;background:var(--panel);border:1px solid var(--line-2);border-radius:22px;padding:30px;box-shadow:var(--shadow)}

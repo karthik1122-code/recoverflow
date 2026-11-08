@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -25,4 +25,7 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
-      - run: node evaluate.mjs
+      - run: npm run evaluate
+      - run: npx playwright install --with-deps chromium
+      - name: Browser journey (sign up, sweep, approve, audit)
+        run: npm run test:e2e

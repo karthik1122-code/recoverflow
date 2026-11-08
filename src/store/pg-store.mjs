@@ -1,4 +1,4 @@
-import { appendAudit } from './audit.mjs';
+import { appendAudit } from '../domain/audit.mjs';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS webhook_keys (

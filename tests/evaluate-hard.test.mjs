@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 
-const report = JSON.parse(execFileSync(process.execPath, ['evaluate-hard.mjs'], { encoding: 'utf8' }));
+const report = JSON.parse(execFileSync(process.execPath, ['eval/evaluate-hard.mjs'], { encoding: 'utf8' }));
 
 test('hard set: no case that must be held ever becomes a customer-facing action', () => {
   assert.deepEqual(report.unsafe, []);

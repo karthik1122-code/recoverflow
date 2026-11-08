@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { diagnose, policyDecision } from './core.mjs';
+import { diagnose, policyDecision } from '../src/domain/diagnosis.mjs';
 
 test('transient issuer failure gets a bounded recommendation', () => {
   const event = {error_description:'issuer timeout', customer_opted_in:true, retry_count:0, amount:12000};
@@ -18,7 +18,7 @@ test('no contact without explicit consent', () => {
 });
 
 test('actions above the high-value threshold (in paise) go to an accounts owner', async () => {
-  const { diagnose, policyDecision, HIGH_VALUE_PAISE } = await import('./core.mjs');
+  const { diagnose, policyDecision, HIGH_VALUE_PAISE } = await import('../src/domain/diagnosis.mjs');
   const base = {error_description:'issuer timeout', customer_opted_in:true, retry_count:0};
   const ok = {...base, amount: HIGH_VALUE_PAISE};
   assert.equal(policyDecision(ok, diagnose(ok)).status, 'approval_required');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { draftRecoveryMessage } from './messages.mjs';
+import { draftRecoveryMessage } from '../src/domain/messages.mjs';
 
 test('creates a Hinglish draft for an eligible bank-timeout recovery', () => {
   const result = draftRecoveryMessage({amount:12500,error_description:'issuer timeout',customer_opted_in:true,retry_count:0}, 'hinglish');

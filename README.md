@@ -6,12 +6,11 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Webhook_Integration-02042B?style=for-the-badge&logo=razorpay&logoColor=0079C1)](https://razorpay.com)
-[![Buildathon](https://img.shields.io/badge/Razorpay_AI-Buildathon_2026-6366F1?style=for-the-badge)](https://github.com/karthik1122-code/recoverflow)
 [![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
 <br />
 
-**A policy-first AI revenue recovery agent built for Razorpay AI Buildathon — Track 03: AI Revenue Recovery.**
+**A policy-first AI revenue recovery agent, built to the Razorpay AI Buildathon brief (Track 03: AI Revenue Recovery). Built for practice; it was not entered.**
 
 ### [▶ Live demo — recoverflow-ten.vercel.app](https://recoverflow-ten.vercel.app) · [Dashboard](https://recoverflow-ten.vercel.app/app.html)
 
@@ -35,7 +34,7 @@ Sign-in is on by default. The first visit to `/login.html` shows a setup screen 
 
 `POST /webhooks/razorpay` never needs a session; it is protected by the Razorpay signature. Passwords use scrypt, sessions are random tokens stored only as SHA-256 hashes, cookies are `HttpOnly; SameSite=Strict`, writes under `/api` need a custom `x-ag-csrf` header, and repeated failed logins lock that email and address for 15 minutes. `AUTH=off` serves the synthetic demo with no sign-in (used for the public showcase); never use it with real data.
 
-Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; login throttling is in memory and resets on restart.
+Limits: email and password only, with no verification email, password reset, SSO or two-factor yet; five wrong passwords lock that email and address for 15 minutes, and the count is stored in Postgres so a restart does not clear it.
 
 ## Why this matters
 
@@ -84,6 +83,7 @@ In production, the diagnosis stage can use an LLM with structured JSON output pl
 - No automatic payment, refund, or retry execution.
 - Duplicate-charge and low-confidence cases are held for a human.
 - Every decision includes source evidence and its policy result.
+- A human decision (approve or keep on hold) is saved by the server through `POST /api/decisions`, which needs the approver role and seals the decision into the audit chain with the approver's email. The dashboard only marks a case as recovered after the server accepts the decision. "Recovered" is a demo simulation: no payment is retried or charged.
 
 ## Metrics shown
 
@@ -96,13 +96,6 @@ In production, the diagnosis stage can use an LLM with structured JSON output pl
 ## What broke, and how we handled it
 
 Initially, the recovery logic treated any payment failure as a retry candidate. That would have retried a failed mandate repeatedly and may have contacted customers with a suspected duplicate charge. We added a policy engine that blocks retry-limit breaches, low-confidence diagnoses, and duplicate/dispute signals. Held cases now remain visible in the exception queue instead of being silently dropped.
-
-## Buildathon submission checklist
-
-- [ ] Publish this directory as a public GitHub repository.
-- [ ] Add a short screen recording / deployment link to this README.
-- [ ] Record a five-minute pitch: problem → live sweep → approval gate → metrics → architecture → failure recovery.
-- [ ] Replace the synthetic-demo outcome label with a real test-mode integration only if you can validate it end-to-end.
 
 ## Evaluation
 
@@ -130,23 +123,51 @@ What the first run found: the pattern `fund` matched "Refund processed" and "Fun
 
 The repository includes a Render blueprint and a step-by-step [deployment runbook](DEPLOY.md). It deploys the webhook receiver over HTTPS while keeping Test Mode secrets in the host's environment-variable store.
 
-## Buildathon application
-
-Use [SUBMISSION.md](SUBMISSION.md) for the form answers and five-minute demo flow.
-
 ## Project layout
 
+Pure business rules sit in `src/domain` and know nothing about HTTP or storage. Storage has one contract with two implementations. The HTTP layer is split into one file per group of routes.
+
 ```
-server.mjs        HTTP server: API, webhook receiver, static files (public/ only)
-core.mjs          diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
-webhook.mjs       HMAC verification + Razorpay payload evaluation
-audit.mjs         hash-chained audit log      idempotency.mjs  stable event keys
-metrics.mjs       process counters behind /api/metrics
-store.mjs         in-memory store: atomic webhook commit (claim + record + audit, or nothing)
-pg-store.mjs      same contract on Postgres, one transaction per webhook
-messages.mjs      consent-safe message drafts (English / Hinglish)
-public/           index.html (landing) + app.html (dashboard) and assets — the only directory served
+server.mjs                    Entry: picks the store, builds auth and metrics, starts listening
+src/
+  config.mjs                  Every environment variable in one place
+  domain/                     Business rules, no I/O (easy to unit test)
+    diagnosis.mjs             diagnose() + policyDecision(); HIGH_VALUE_PAISE = 50_000_000 (₹5,00,000)
+    webhook.mjs               HMAC verification + Razorpay payload evaluation
+    idempotency.mjs           Stable event keys, so a retried delivery is recognised
+    audit.mjs                 Hash-chained audit log and its verifier
+    messages.mjs              Consent-safe message drafts (English / Hinglish)
+  store/                      Same contract (commitWebhook, addAudit, snapshot), two implementations
+    memory-store.mjs          In memory: atomic webhook commit (claim + record + audit, or nothing)
+    pg-store.mjs              Postgres: one transaction per webhook, advisory lock for audit appends
+  auth/auth.mjs               Accounts, sessions, roles, login lock (memory or Postgres)
+  metrics.mjs                 Process counters behind /api/metrics
+  http/
+    handler.mjs               CSRF check -> who is signed in -> public routes -> sign-in check -> private routes -> 404
+    respond.mjs               reply(), body limits, JSON parsing, HttpError, cookies, client address
+    routes/
+      auth.routes.mjs         /api/auth/me, setup, login, logout
+      users.routes.mjs        /api/users (admin)
+      webhook.routes.mjs      POST /webhooks/razorpay (signature-protected, idempotent)
+      recovery.routes.mjs     /api/play/diagnose (public demo), /api/diagnose, /api/draft-message, /api/decisions
+      ops.routes.mjs          /health, /api/metrics, /api/audit, /api/create-test-payment-link
+      static.routes.mjs       Files from public/ only, with the dashboard login redirect
+public/                       Landing page, dashboard and assets: the only directory served
+eval/                         evaluate.mjs, evaluate-hard.mjs and the 47 hand-written cases
+tests/                        Unit, store-contract, Postgres and server tests
+e2e/                          Browser journey (Playwright)
 ```
+
+### Where to change things
+
+| You want to... | Change |
+| --- | --- |
+| Add or change a failure type or policy rule | `src/domain/diagnosis.mjs`, then run `npm run evaluate:hard` |
+| Change a recovery message | `src/domain/messages.mjs` |
+| Add an API endpoint | The matching file in `src/http/routes/` (or a new file listed in `handler.mjs`) |
+| Make a route public or admin-only | Its place in `PUBLIC` / `PRIVATE` in `handler.mjs`, or its `need('role')` check |
+| Change what is stored or how | `src/store/` (both implementations keep the same contract; `tests/memory-store.test.mjs` and `tests/pg-store.test.mjs` check it) |
+| Add an environment variable | `src/config.mjs` |
 
 Amounts are always integers in **paise**.
 
@@ -179,6 +200,14 @@ Set `DATABASE_URL` and the server uses Postgres; leave it unset and it runs in m
 - `GET /api/audit` returns the latest 500 records plus an anchor hash, so the window still verifies.
 - Tests in `pg-store.test.mjs` run against a real database when `TEST_DATABASE_URL` is set (skipped otherwise): 200 concurrent duplicates, rollback and retry, a duplicate racing a failing attempt, restart persistence, and tamper detection on a window.
 
+## Known limitations
+
+- Razorpay is Test Mode only and the dashboard data is synthetic. There is no merchant onboarding or per-merchant data separation yet.
+- Diagnosis is rule-based. The accuracy numbers come from hand-written test sets, not live payments.
+- Approving an action records the decision; it does not call Razorpay to retry or refund anything.
+- The public demo rate limit lives in memory and resets on restart. (The login lock is stored in Postgres.)
+- No password reset, email verification or two-factor sign-in.
+
 ## Security notes
 
 - Only `public/` is served; source files, `.env` and the audit file are never reachable.
@@ -194,6 +223,7 @@ The HTTP server uses Node's built-in modules. Run `npm ci` once to install `pg`;
 ```bash
 cd recoverflow
 npm test          # unit + server integration tests
+npm run test:e2e  # browser journey: set up admin, sweep, approve, reload, check the audit chain
 npm run evaluate  # synthetic held-out scenario suite
 npm run dev
 ```
